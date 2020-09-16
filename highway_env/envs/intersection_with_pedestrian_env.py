@@ -138,7 +138,7 @@ class PedestrianIntersectionEnv(IntersectionEnv):
         simulation_steps = 3
         # TODO(@evinitsky) remove hardcoding
         for t in range(n_vehicles - 1):
-            self._spawn_vehicle(np.linspace(0, 80, n_vehicles)[t], is_ped=True)
+            self._spawn_vehicle(80, is_ped=True)
         for _ in range(simulation_steps):
             [(self.road.act(), self.road.step(1 / self.config["simulation_frequency"])) for _ in
              range(self.config["simulation_frequency"])]
@@ -185,7 +185,9 @@ class PedestrianIntersectionEnv(IntersectionEnv):
         if is_ped:
             vehicle = vehicle_type.make_on_lane(self.road, ("p" + str(route[0]), "ir" + str(route[0]), 0),
                                                 longitudinal=longitudinal + 5 + self.np_random.randn() * position_deviation,
-                                                speed=1.0)
+                                                speed=2.0)
+            vehicle.LENGTH = 2.0
+            vehicle.color = (200, 0, 150)
         else:
             vehicle = vehicle_type.make_on_lane(self.road, ("o" + str(route[0]), "ir" + str(route[0]), 0),
                                                 longitudinal=longitudinal + 5 + self.np_random.randn() * position_deviation,
