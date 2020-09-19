@@ -4,6 +4,7 @@ import numpy as np
 
 from highway_env import utils
 from highway_env.road.road import Road, RoadNetwork
+from highway_env.road.lane import StraightLane
 from highway_env.vehicle.controller import ControlledVehicle, MDPVehicle
 from highway_env.vehicle.kinematics import Vehicle, Obstacle
 
@@ -26,6 +27,38 @@ class RegulatedRoad(Road):
 
     def enforce_road_rules(self) -> None:
         """Find conflicts and resolve them by assigning yielding vehicles and stopping them."""
+
+        print('step', self.steps)
+
+        n_veh_in_intersection = 0
+        closest = None
+        closest_dist = 1e9
+        threshold = 10
+
+        # prevent vehicles from entering intersection if there's already one vehicle in
+        for v in self.vehicles:
+            origin, dest, _ = lane = self.network.get_closest_lane_index(v.position)
+            lane_geometry = self.network.get_lane(lane)
+
+            if origin.startswith("o"):
+                # going towards intersection
+                assert isinstance(lane_geometry, StraightLane)
+                _, lane_end = lane_geometry.start, lane_geometry.end
+                v_dist = np.linalg.norm(lane_end - v.position)
+                if v_dist < closest_dist:
+                    closest_dist = v_dist
+                    closest = v
+                if v_dist < threshold:
+                    # vehicle getting close to intersection -> brake
+                    v.target_speed = 0
+            elif origin.startswith("i") and dest.startswith("i"):
+                # vehicle in intersection
+                n_veh_in_intersection += 1
+        
+        if n_veh_in_intersection == 0 and closest is not None:
+            # if intersection is empty, vehicle closest to intersection is allowed to go
+            closest.target_speed = closest.lane.speed_limit
+
 
         # Unfreeze previous yielding vehicles
         for v in self.vehicles:
