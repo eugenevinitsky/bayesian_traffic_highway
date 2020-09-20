@@ -6,7 +6,7 @@ env = gym.make('intersection-pedestrian-v0')
 
 # pick custom scenario
 env.config["scenario"] = [
-    "social_sensing",  # scenario 0
+    "social_sensing",  # scenario 1
 ][0]
 
 # to avoid constant inflow
