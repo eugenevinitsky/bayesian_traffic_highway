@@ -30,34 +30,35 @@ class RegulatedRoad(Road):
 
         print('step', self.steps)
 
-        n_veh_in_intersection = 0
-        closest = None
-        closest_dist = 1e9
-        threshold = 10
+        if False:
+            n_veh_in_intersection = 0
+            closest = None
+            closest_dist = 1e9
+            threshold = 10
 
-        # prevent vehicles from entering intersection if there's already one vehicle in
-        for v in self.vehicles:
-            origin, dest, _ = lane = self.network.get_closest_lane_index(v.position)
-            lane_geometry = self.network.get_lane(lane)
+            # prevent vehicles from entering intersection if there's already one vehicle in
+            for v in self.vehicles:
+                origin, dest, _ = lane = self.network.get_closest_lane_index(v.position)
+                lane_geometry = self.network.get_lane(lane)
 
-            if origin.startswith("o"):
-                # going towards intersection
-                assert isinstance(lane_geometry, StraightLane)
-                _, lane_end = lane_geometry.start, lane_geometry.end
-                v_dist = np.linalg.norm(lane_end - v.position)
-                if v_dist < closest_dist:
-                    closest_dist = v_dist
-                    closest = v
-                if v_dist < threshold:
-                    # vehicle getting close to intersection -> brake
-                    v.target_speed = 0
-            elif origin.startswith("i") and dest.startswith("i"):
-                # vehicle in intersection
-                n_veh_in_intersection += 1
-        
-        if n_veh_in_intersection == 0 and closest is not None:
-            # if intersection is empty, vehicle closest to intersection is allowed to go
-            closest.target_speed = closest.lane.speed_limit
+                if origin.startswith("o"):
+                    # going towards intersection
+                    assert isinstance(lane_geometry, StraightLane)
+                    _, lane_end = lane_geometry.start, lane_geometry.end
+                    v_dist = np.linalg.norm(lane_end - v.position)
+                    if v_dist < closest_dist:
+                        closest_dist = v_dist
+                        closest = v
+                    if v_dist < threshold:
+                        # vehicle getting close to intersection -> brake
+                        v.target_speed = 0
+                elif origin.startswith("i") and dest.startswith("i"):
+                    # vehicle in intersection
+                    n_veh_in_intersection += 1
+            
+            if n_veh_in_intersection == 0 and closest is not None:
+                # if intersection is empty, vehicle closest to intersection is allowed to go
+                closest.target_speed = closest.lane.speed_limit
 
 
         # Unfreeze previous yielding vehicles

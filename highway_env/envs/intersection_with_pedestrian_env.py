@@ -36,6 +36,7 @@ class PedestrianIntersectionEnv(IntersectionEnv):
                 "longitudinal": True,
                 "lateral": False
             },
+            "scenario": None,
             "duration": 13,  # [s]
             "destination": "o1",
             "controlled_vehicles": 1,
@@ -88,7 +89,7 @@ class PedestrianIntersectionEnv(IntersectionEnv):
             start = rotation @ np.array([lane_width * 2.5, access_length + outer_distance])
             end = rotation @ np.array([lane_width * 2.5, -outer_distance - access_length])
             net.add_lane("p" + str(corner), "ir" + str(corner),
-                         StraightLane(start, end, line_types=[c, c], priority=4,
+                         StraightLane(start, end, line_types=[c, c], priority=1000,
                                       width=AbstractLane.DEFAULT_WIDTH / 2, speed_limit=2))
 
             # Right turn
@@ -126,6 +127,49 @@ class PedestrianIntersectionEnv(IntersectionEnv):
         vehicle_type.DISTANCE_WANTED = 7  # Low jam distance
         vehicle_type.COMFORT_ACC_MAX = 6
         vehicle_type.COMFORT_ACC_MIN = -3
+
+        def spawn_ego(lane, dest, pos):
+            # add ego
+            ego_lane = self.road.network.get_lane(lane)
+            ego_vehicle = self.action_type.vehicle_class(
+                            self.road,
+                            ego_lane.position(pos, 0),
+                            speed=ego_lane.speed_limit,
+                            heading=ego_lane.heading_at(60)) \
+                .plan_route_to(dest)
+            ego_vehicle.SPEED_MIN = 0
+            ego_vehicle.SPEED_MAX = 9
+            ego_vehicle.SPEED_COUNT = 3
+            ego_vehicle.speed_index = ego_vehicle.speed_to_index(ego_lane.speed_limit)
+            ego_vehicle.target_speed = ego_vehicle.index_to_speed(ego_vehicle.speed_index)
+
+            self.road.vehicles.append(ego_vehicle)
+            self.controlled_vehicles = [ego_vehicle]
+
+        def spawn_vehicle(lane, dest, pos, speed, type="car"):
+            vehicle_type = utils.class_from_path(self.config["other_vehicles_type"])
+            vehicle = vehicle_type.make_on_lane(self.road, lane, longitudinal=pos, speed=speed)
+            if type == "ped":
+                vehicle.LENGTH = 2.0
+                vehicle.color = (200, 0, 150)
+            elif type == "bus":
+                vehicle.LENGTH = 10.0
+                vehicle.color = (200, 210, 0)
+            vehicle.plan_route_to(dest)
+            vehicle.randomize_behavior()
+            self.road.vehicles.append(vehicle)
+
+        if self.config["scenario"] is not None:
+            print(f"Using custom scenario: {self.config['scenario']}")
+
+            if self.config["scenario"] == "social_sensing":
+                spawn_ego(lane=("o3", "ir3", 0), dest="o1", pos=60)
+                spawn_vehicle(lane=("o1", "ir1", 0), dest="o3", pos=70, speed=8.0)
+                spawn_vehicle(lane=("p2", "ir2", 0), dest="o0", pos=97, speed=2.0, type="ped")
+                spawn_vehicle(lane=("o2", "ir2", 0), dest="o1", pos=100, speed=0.0, type="bus")
+            else:
+                raise ValueError(f"Scenario '{self.config['scenario']}' unknown.")
+            return
 
         # Random vehicles
         simulation_steps = 3
