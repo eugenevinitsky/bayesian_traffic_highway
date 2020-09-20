@@ -65,7 +65,8 @@ class RegulatedRoad(Road):
             if getattr(v, "is_yielding", False):
                 if v.yield_timer >= self.YIELD_DURATION * self.REGULATION_FREQUENCY:
                     v.target_speed = v.lane.speed_limit
-                    delattr(v, "color")
+                    # if hasattr(v, "color"):
+                    #     delattr(v, "color")
                     v.is_yielding = False
                 else:
                     v.yield_timer += 1
@@ -73,15 +74,19 @@ class RegulatedRoad(Road):
         # Find new conflicts and resolve them
         for i in range(len(self.vehicles) - 1):
             for j in range(i+1, len(self.vehicles)):
+                # avoid crashes
                 if self.is_conflict_possible(self.vehicles[i], self.vehicles[j]):
                     yielding_vehicle = self.respect_priorities(self.vehicles[i], self.vehicles[j])
                     if yielding_vehicle is not None and \
                             isinstance(yielding_vehicle, ControlledVehicle) and \
                             not isinstance(yielding_vehicle, MDPVehicle):
-                        yielding_vehicle.color = self.YIELDING_COLOR
+                        # yielding_vehicle.color = self.YIELDING_COLOR
                         yielding_vehicle.target_speed = 0
                         yielding_vehicle.is_yielding = True
                         yielding_vehicle.yield_timer = 0
+
+                # if ped is crossing, slow down
+                self.check_ped_crossing(self.vehicles[i], self.vehicles[j])
 
     @staticmethod
     def respect_priorities(v1: Vehicle, v2: Vehicle) -> Vehicle:
@@ -114,3 +119,25 @@ class RegulatedRoad(Road):
             if utils.rotated_rectangles_intersect((position_1, 1.5*v1.LENGTH, 0.9*v1.WIDTH, heading_1),
                                                   (position_2, 1.5*v2.LENGTH, 0.9*v2.WIDTH, heading_2)):
                 return True
+
+    @staticmethod
+    def check_ped_crossing(v1: ControlledVehicle, v2: ControlledVehicle) -> bool:
+        times_veh = np.arange(0.1, 1, 0.1)
+        times_ped = np.arange(0.1, 5, 0.1)
+
+        if v1.LENGTH < 3 and v2.LENGTH > 3:
+            ped, veh = v1, v2
+        elif v1.LENGTH > 3 and v2.LENGTH < 3:
+            ped, veh = v2, v1
+        else:
+            return
+
+        for pos1 in ped.predict_trajectory_constant_speed(times_ped)[0]:
+            for pos2 in veh.predict_trajectory_constant_speed(times_veh, use_lane_speed=True)[0]:
+                if np.linalg.norm(pos1 - pos2) < 5 and \
+                        isinstance(veh, ControlledVehicle) and \
+                        not isinstance(veh, MDPVehicle):
+                    veh.target_speed = 0
+                    veh.is_yielding = True
+                    veh.yield_timer = 0
+                    return
