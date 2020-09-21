@@ -173,7 +173,7 @@ class PedestrianIntersectionEnv(IntersectionEnv):
             ego_vehicle.target_speed = ego_vehicle.index_to_speed(ego_vehicle.speed_index)
 
             self.road.vehicles.append(ego_vehicle)
-            self.controlled_vehicles = [ego_vehicle]
+            self.controlled_vehicles.append(ego_vehicle)
 
         def spawn_vehicle(lane, dest, pos, speed, heading=None, type="car"):
             vehicle_type = utils.class_from_path(self.config["other_vehicles_type"])
@@ -198,6 +198,14 @@ class PedestrianIntersectionEnv(IntersectionEnv):
                 spawn_vehicle(lane=("o1", "ir1", 0), dest="o3", pos=70, speed=8.0, type="car")
                 spawn_vehicle(lane=("p2", "ir2", 0), dest="o0", pos=97, speed=2.0, type="ped")
                 spawn_vehicle(lane=("ir2", "il1", 0), dest="o1", pos=2, speed=2.0, heading=3.1415/16*12, type="bus")
+            elif self.config["scenario"] in [2, 3]:
+                spawn_ego(lane=("o3", "ir3", 0), dest="o1", pos=55)
+                spawn_vehicle(lane=("o1", "ir1", 0), dest="o0", pos=74, speed=7.0, type="car")
+                spawn_vehicle(lane=("o2", "ir2", 0), dest="o0", pos=80, speed=2.0, type="bus")
+                spawn_vehicle(lane=("il3", "o3", 0), dest="o3", pos=5, speed=0.0, type="bus")
+                spawn_vehicle(lane=("p0", "ir0", 0), dest="o2", pos=102, speed=2.0, type="ped")
+                if self.config["scenario"] == 3:
+                    spawn_ego(lane=("o1", "ir1", 0), dest="o0", pos=55)
             elif self.config["scenario"] == 9:
                 spawn_ego(lane=("o0", "ir0", 1), dest="o3", pos=40)
                 spawn_vehicle(lane=("o0", "ir0", 0), dest="o3", pos=78, speed=10.0, type="car")

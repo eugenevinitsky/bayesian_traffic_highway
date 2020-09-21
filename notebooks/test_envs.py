@@ -4,8 +4,8 @@ from matplotlib import pyplot as plt
 
 env = gym.make('intersection-pedestrian-v0')
 
-# pick custom scenario (implemented: 1, 9)
-env.config["scenario"] = 1
+# pick custom scenario (implemented: 1, 2, 3, 9)
+env.config["scenario"] = 3
 
 # to avoid constant inflow
 env.config["spawn_probability"] = 0  
