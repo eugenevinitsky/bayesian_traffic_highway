@@ -4,10 +4,8 @@ from matplotlib import pyplot as plt
 
 env = gym.make('intersection-pedestrian-v0')
 
-# pick custom scenario
-env.config["scenario"] = [
-    "social_sensing",  # scenario 1
-][0]
+# pick custom scenario (implemented: 1, 9)
+env.config["scenario"] = 1
 
 # to avoid constant inflow
 env.config["spawn_probability"] = 0  

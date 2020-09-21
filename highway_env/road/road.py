@@ -45,7 +45,7 @@ class RoadNetwork(object):
         :return: the corresponding lane geometry.
         """
         _from, _to, _id = index
-        if _id is None and len(self.graph[_from][_to]) == 1:
+        if _id is None: #and len(self.graph[_from][_to]) == 1:
             _id = 0
         return self.graph[_from][_to][_id]
 
