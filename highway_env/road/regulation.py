@@ -19,6 +19,8 @@ class RegulatedRoad(Road):
         super().__init__(network, vehicles, obstacles, np_random, record_history)
         self.steps = 0
 
+        self.intersection_order = []
+
     def step(self, dt: float) -> None:
         self.steps += 1
         if self.steps % int(1 / dt / self.REGULATION_FREQUENCY) == 0:
@@ -30,11 +32,15 @@ class RegulatedRoad(Road):
 
         print('step', self.steps)
 
-        if False:
+        for corner in range(4):
+            print('ped crossing', corner, self.is_ped_crossing(corner))
+
+        if False:  # go one by one in intersection
             n_veh_in_intersection = 0
             closest = None
             closest_dist = 1e9
-            threshold = 10
+            threshold = 10  # threshold to start braking if theres someone in intersection
+            threshold_arrival = 50 # threshold to be detected as arriving to intersection
 
             # prevent vehicles from entering intersection if there's already one vehicle in
             for v in self.vehicles:
@@ -45,20 +51,27 @@ class RegulatedRoad(Road):
                     # going towards intersection
                     assert isinstance(lane_geometry, StraightLane)
                     _, lane_end = lane_geometry.start, lane_geometry.end
-                    v_dist = np.linalg.norm(lane_end - v.position)
+                    v_dist = np.linalg.norm(lane_end - v.position)  # distance to intersection
                     if v_dist < closest_dist:
                         closest_dist = v_dist
                         closest = v
                     if v_dist < threshold:
                         # vehicle getting close to intersection -> brake
                         v.target_speed = 0
+                    if v_dist < threshold_arrival:
+                        if v not in self.intersection_order:
+                            self.intersection_order.append(v)
                 elif origin.startswith("i") and dest.startswith("i"):
                     # vehicle in intersection
                     n_veh_in_intersection += 1
             
-            if n_veh_in_intersection == 0 and closest is not None:
-                # if intersection is empty, vehicle closest to intersection is allowed to go
-                closest.target_speed = closest.lane.speed_limit
+            if n_veh_in_intersection == 0 and len(self.intersection_order) > 0: # and closest is not None:
+                # if intersection is empty, last vehicle arrived is allowed to go
+                v_go = self.intersection_order.pop(0)
+                v_go.target_speed = v_go.lane.speed_limit
+
+                # # if intersection is empty, vehicle closest to intersection is allowed to go
+                # closest.target_speed = closest.lane.speed_limit
 
 
         # Unfreeze previous yielding vehicles
