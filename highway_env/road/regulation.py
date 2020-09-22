@@ -131,8 +131,8 @@ class RegulatedRoad(Road):
         elif v1.LENGTH > 3 and v2.LENGTH < 3:
             ped, veh = v2, v1
         else:
-            return
-
+            return False
+ 
         for pos1 in ped.predict_trajectory_constant_speed(times_ped)[0]:
             for pos2 in veh.predict_trajectory_constant_speed(times_veh, use_lane_speed=True)[0]:
                 if np.linalg.norm(pos1 - pos2) < 5 and \
@@ -141,4 +141,5 @@ class RegulatedRoad(Road):
                     veh.target_speed = 0
                     veh.is_yielding = True
                     veh.yield_timer = 0
-                    return
+                    return True
+        return False
