@@ -156,3 +156,17 @@ class RegulatedRoad(Road):
                     veh.yield_timer = 0
                     return True
         return False
+
+    def is_ped_crossing(self, crossing: int) -> bool:
+        """whether a pedestrian is crossing on the specified crossing.
+        crossing ids =
+            0: east crossing
+            1: south crossing
+            2: west crossing
+            3: north crossing"""
+        for v in self.vehicles:
+            if type(v.lane) is StraightLane:
+                if v.lane_index[0].startswith(f'p{crossing}'):
+                    if np.max(v.lane.local_coordinates(v.position)) > 95 and np.max(v.lane.local_coordinates(v.position)) < 115:
+                        return True             
+        return False

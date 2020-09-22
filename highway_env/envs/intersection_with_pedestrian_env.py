@@ -110,13 +110,13 @@ class PedestrianIntersectionEnv(IntersectionEnv):
             start = rotation @ np.array([lane_width * 2.5, access_length + outer_distance])
             end = rotation @ np.array([lane_width * 2.5, -outer_distance - access_length])
             net.add_lane("p" + str(corner), "ir" + str(corner),
-                         StraightLane(start, end, line_types=[n, n], priority=1000,
+                         StraightLane(start, end, line_types=[n, n], priority=1234,
                                       width=AbstractLane.DEFAULT_WIDTH / 2, speed_limit=2))
             # Pedestrian lanes (other direction)
             start = rotation @ np.array([lane_width * 3.5, access_length + outer_distance])
             end = rotation @ np.array([lane_width * 3.5, -outer_distance - access_length])
             net.add_lane("p" + str(corner) + "_inv", "ir" + str(corner),
-                         StraightLane(end, start, line_types=[n, n], priority=1000,
+                         StraightLane(end, start, line_types=[n, n], priority=1234,
                                       width=AbstractLane.DEFAULT_WIDTH / 2, speed_limit=2))
 
             # Right turn
@@ -193,7 +193,9 @@ class PedestrianIntersectionEnv(IntersectionEnv):
         if self.config["scenario"] is not None:
             print(f"Using custom scenario: {self.config['scenario']}")
 
-            if self.config["scenario"] == 1:
+            if self.config["scenario"] == 0: # debug
+                spawn_vehicle(lane=("p1_inv", "ir1", 0), dest="o0", pos=95, speed=2.0, type="ped")
+            elif self.config["scenario"] == 1:
                 spawn_ego(lane=("o3", "ir3", 0), dest="o1", pos=60)
                 spawn_vehicle(lane=("o1", "ir1", 0), dest="o3", pos=70, speed=8.0, type="car")
                 spawn_vehicle(lane=("p2", "ir2", 0), dest="o0", pos=97, speed=2.0, type="ped")
