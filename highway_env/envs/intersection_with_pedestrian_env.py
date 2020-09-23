@@ -169,7 +169,7 @@ class PedestrianIntersectionEnv(IntersectionEnv):
                             heading=ego_lane.heading_at(60)) \
                 .plan_route_to(dest)
             ego_vehicle.SPEED_MIN = 0
-            ego_vehicle.SPEED_MAX = 9
+            ego_vehicle.SPEED_MAX = 10
             ego_vehicle.SPEED_COUNT = 3
             ego_vehicle.speed_index = ego_vehicle.speed_to_index(ego_lane.speed_limit)
             ego_vehicle.target_speed = ego_vehicle.index_to_speed(ego_vehicle.speed_index)

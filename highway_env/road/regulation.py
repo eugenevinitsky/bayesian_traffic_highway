@@ -30,7 +30,7 @@ class RegulatedRoad(Road):
     def enforce_road_rules(self) -> None:
         """Find conflicts and resolve them by assigning yielding vehicles and stopping them."""
 
-        print('step', self.steps)
+        # print('step', self.steps)
         # for corner in range(4):
         #     print('ped crossing', corner, self.is_ped_crossing(corner))
 

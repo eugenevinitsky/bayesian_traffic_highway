@@ -8,7 +8,7 @@ env = gym.make('intersection-pedestrian-v0')
 env.config["scenario"] = 1
 
 # to avoid constant inflow
-env.config["spawn_probability"] = 0  
+env.config["spawn_probability"] = 0
 
 env.reset()
 for _ in range(50):
