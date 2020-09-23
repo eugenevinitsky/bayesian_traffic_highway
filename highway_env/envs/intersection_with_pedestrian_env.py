@@ -19,7 +19,7 @@ class PedestrianIntersectionEnv(IntersectionEnv):
         config.update({
             "observation": {
                 "type": "Kinematics",
-                "vehicles_count": 15,
+                "vehicles_count": 5,
                 "features": ["presence", "x", "y", "vx", "vy", "cos_h", "sin_h"],
                 "features_range": {
                     "x": [-100, 100],
@@ -156,6 +156,8 @@ class PedestrianIntersectionEnv(IntersectionEnv):
         vehicle_type.DISTANCE_WANTED = 7  # Low jam distance
         vehicle_type.COMFORT_ACC_MAX = 6
         vehicle_type.COMFORT_ACC_MIN = -3
+
+        self.controlled_vehicles = []
 
         def spawn_ego(lane, dest, pos):
             # add ego
