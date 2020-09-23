@@ -31,9 +31,8 @@ class RegulatedRoad(Road):
         """Find conflicts and resolve them by assigning yielding vehicles and stopping them."""
 
         print('step', self.steps)
-
-        for corner in range(4):
-            print('ped crossing', corner, self.is_ped_crossing(corner))
+        # for corner in range(4):
+        #     print('ped crossing', corner, self.is_ped_crossing(corner))
 
         if False:  # go one by one in intersection
             n_veh_in_intersection = 0
