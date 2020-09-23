@@ -258,7 +258,7 @@ class Road(Loggable):
 
     def close_vehicles_to(self, vehicle: 'kinematics.Vehicle', distance: float, count: int = None,
                           see_behind: bool = True,
-                          obscuration=True, fov=180, looking_distance=50) -> object:
+                          obscuration=True, fov=180, looking_distance=50, verbal=True) -> object:
         if obscuration:
             vehicles = [v for v in self.vehicles
                         if v is not vehicle
@@ -282,7 +282,7 @@ class Road(Loggable):
             hidden_vehicles = [v for v in vehicles if self.check_blocked(vehicle.position, v.position, blocked, v)]  # if needed
             vehicles = [v for v in vehicles if v not in hidden_vehicles]  # visible vehicles
 
-            if True:  # verbal print hidden & visible vehicles for debug
+            if verbal:  # verbal print hidden & visible vehicles for debug
                 f1 = lambda x: x.LENGTH
                 f2 = lambda l: {2: 'pedestrian', 5: 'car', 10: 'bus'}[l]
                 print(f'visible: {list(map(f2, map(f1, vehicles)))}, hidden: {list(map(f2, map(f1, hidden_vehicles)))}')
