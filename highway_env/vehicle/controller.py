@@ -218,6 +218,9 @@ class MDPVehicle(ControlledVehicle):
         self.speed_index = self.speed_to_index(self.target_speed)
         self.target_speed = self.index_to_speed(self.speed_index)
 
+    def randomize_behavior(self):
+        pass
+    
     def act(self, action: Union[dict, str] = None) -> None:
         """
         Perform a high-level action.
@@ -298,3 +301,5 @@ class MDPVehicle(ControlledVehicle):
                 if (t % int(trajectory_timestep / dt)) == 0:
                     states.append(copy.deepcopy(v))
         return states
+
+    

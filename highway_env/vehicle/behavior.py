@@ -496,3 +496,42 @@ class DefensiveVehicle(LinearVehicle):
     ACCELERATION_PARAMETERS = [MERGE_ACC_GAIN / ((1 - MERGE_VEL_RATIO) * MERGE_TARGET_VEL),
                                MERGE_ACC_GAIN / (MERGE_VEL_RATIO * MERGE_TARGET_VEL),
                                2.0]
+
+# class FullStop(IDMVehicle):
+#     def acceleration(self,
+#                      ego_vehicle: ControlledVehicle,
+#                      front_vehicle: Vehicle = None,
+#                      rear_vehicle: Vehicle = None) -> float:        
+#         return -40
+
+class L0RuleBasedVehicle(IDMVehicle):
+    """Rule based vehicle that obeys normal traffic rules"""
+    def acceleration(self,
+                     ego_vehicle: ControlledVehicle,
+                     front_vehicle: Vehicle = None,
+                     rear_vehicle: Vehicle = None) -> float:
+        """
+        Compute an acceleration command with the Intelligent Driver Model.
+
+        The acceleration is chosen so as to:
+        - reach a target speed;
+        - maintain a minimum safety distance (and safety time) w.r.t the front vehicle.
+
+        :param ego_vehicle: the vehicle whose desired acceleration is to be computed. It does not have to be an
+                            IDM vehicle, which is why this method is a class method. This allows an IDM vehicle to
+                            reason about other vehicles behaviors even though they may not IDMs.
+        :param front_vehicle: the vehicle preceding the ego-vehicle
+        :param rear_vehicle: the vehicle following the ego-vehicle
+        :return: the acceleration command for the ego-vehicle [m/s2]
+        """
+        if not ego_vehicle or isinstance(ego_vehicle, RoadObject):
+            return 0
+        ego_target_speed = utils.not_zero(getattr(ego_vehicle, "target_speed", 0))
+        acceleration = self.COMFORT_ACC_MAX * (
+                1 - np.power(max(ego_vehicle.speed, 0) / ego_target_speed, self.DELTA))
+
+        if front_vehicle:
+            d = ego_vehicle.lane_distance_to(front_vehicle)
+            acceleration -= self.COMFORT_ACC_MAX * \
+                np.power(self.desired_gap(ego_vehicle, front_vehicle) / utils.not_zero(d), 2)
+        return acceleration

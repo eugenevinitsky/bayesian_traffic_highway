@@ -34,7 +34,7 @@ class PedestrianIntersectionEnv(IntersectionEnv):
             "action": {
                 "type": "DiscreteMetaAction",
                 "longitudinal": True,
-                "lateral": False
+                "lateral": False # ah, here's where we turn things off
             },
             "scenario": None,
             "duration": 13,  # [s]
@@ -75,7 +75,7 @@ class PedestrianIntersectionEnv(IntersectionEnv):
         net = RoadNetwork()
         n, c, s = LineType.NONE, LineType.CONTINUOUS, LineType.STRIPED
 
-        if self.config["scenario"] == 9:
+        if (self.config["scenario"] == 9 or self.config["scenario"] == 10):
             # 2nd lane for this scenario
             # incoming from south
             rotation = np.array([[1, 0], [0, 1]])
@@ -100,7 +100,7 @@ class PedestrianIntersectionEnv(IntersectionEnv):
             priority = 3 if is_horizontal else 1
             rotation = np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
             # Incoming
-            lt = [c, c] if self.config["scenario"] == 9 and corner == 0 else [s, c]
+            lt = [c, c] if (self.config["scenario"] == 9 or self.config["scenario"] == 10) and corner == 0 else [s, c]
             start = rotation @ np.array([lane_width / 2, access_length + outer_distance])
             end = rotation @ np.array([lane_width / 2, outer_distance])
             net.add_lane("o" + str(corner), "ir" + str(corner),
@@ -120,7 +120,7 @@ class PedestrianIntersectionEnv(IntersectionEnv):
                                       width=AbstractLane.DEFAULT_WIDTH / 2, speed_limit=2))
 
             # Right turn
-            lt = [c, c] if self.config["scenario"] == 9 and corner == 0 else [n, c]
+            lt = [c, c] if (self.config["scenario"] == 9 or self.config["scenario"] == 10) and corner == 0 else [n, c]
             r_center = rotation @ (np.array([outer_distance, outer_distance]))
             net.add_lane("ir" + str(corner), "il" + str((corner - 1) % 4),
                          CircularLane(r_center, right_turn_radius, angle + np.radians(180), angle + np.radians(270),
@@ -136,7 +136,7 @@ class PedestrianIntersectionEnv(IntersectionEnv):
             net.add_lane("ir" + str(corner), "il" + str((corner + 2) % 4),
                          StraightLane(start, end, line_types=[s, n], priority=priority, speed_limit=10))
             # Exit
-            lt = [c, c] if self.config["scenario"] == 9 and corner == 0 else [s, c]
+            lt = [c, c] if (self.config["scenario"] == 9 or self.config["scenario"] == 10) and corner == 0 else [s, c]
             start = rotation @ np.flip([lane_width / 2, access_length + outer_distance], axis=0)
             end = rotation @ np.flip([lane_width / 2, outer_distance], axis=0)
             net.add_lane("il" + str((corner - 1) % 4), "o" + str((corner - 1) % 4),
@@ -154,8 +154,8 @@ class PedestrianIntersectionEnv(IntersectionEnv):
         # Configure vehicles
         vehicle_type = utils.class_from_path(self.config["other_vehicles_type"])
         vehicle_type.DISTANCE_WANTED = 7  # Low jam distance
-        vehicle_type.COMFORT_ACC_MAX = 6
-        vehicle_type.COMFORT_ACC_MIN = -3
+        vehicle_type.COMFORT_ACC_MAX = 2.6
+        vehicle_type.COMFORT_ACC_MIN = -4.5
 
         self.controlled_vehicles = []
 
@@ -215,6 +215,11 @@ class PedestrianIntersectionEnv(IntersectionEnv):
                 spawn_vehicle(lane=("o0", "ir0", 0), dest="o3", pos=78, speed=10.0, type="car")
                 spawn_vehicle(lane=("o0", "ir0", 0), dest="o3", pos=72, speed=10.0, type="car")
                 spawn_vehicle(lane=("o0", "ir0", 0), dest="o3", pos=66, speed=10.0, type="car")
+                spawn_vehicle(lane=("p1_inv", "ir1", 0), dest="o1", pos=95, speed=2.0, type="ped")
+                pass
+            elif self.config["scenario"] == 10:
+                spawn_ego(lane=("o0", "ir0", 1), dest="o2", pos=45)
+                spawn_vehicle(lane=("o0", "ir0", 0), dest="o3", pos=25, speed=10.0, type="car")
                 spawn_vehicle(lane=("p1_inv", "ir1", 0), dest="o1", pos=95, speed=2.0, type="ped")
                 pass
             else:
