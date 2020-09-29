@@ -134,6 +134,8 @@ class Vehicle(Loggable):
         self.position += v * dt
         self.heading += self.speed * np.sin(beta) / (self.LENGTH / 2) * dt
         self.speed += self.action['acceleration'] * dt
+        # ensure decelerations don't cause negative speeds
+        if self.speed < 0: self.speed = 0
         self.on_state_update()
 
     def clip_actions(self) -> None:

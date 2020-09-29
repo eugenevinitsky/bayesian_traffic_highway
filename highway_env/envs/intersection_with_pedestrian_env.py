@@ -34,7 +34,7 @@ class PedestrianIntersectionEnv(IntersectionEnv):
             "action": {
                 "type": "DiscreteMetaAction",
                 "longitudinal": True,
-                "lateral": False
+                "lateral": False # ah, here's where we turn things off
             },
             "scenario": None,
             "duration": 13,  # [s]
@@ -154,8 +154,8 @@ class PedestrianIntersectionEnv(IntersectionEnv):
         # Configure vehicles
         vehicle_type = utils.class_from_path(self.config["other_vehicles_type"])
         vehicle_type.DISTANCE_WANTED = 7  # Low jam distance
-        vehicle_type.COMFORT_ACC_MAX = 6
-        vehicle_type.COMFORT_ACC_MIN = -3
+        vehicle_type.COMFORT_ACC_MAX = 2.6
+        vehicle_type.COMFORT_ACC_MIN = -4.5
 
         self.controlled_vehicles = []
 
