@@ -3,9 +3,6 @@
 from copy import copy
 import numpy as np
 
-try: from ray.rllib.agents.agent import get_agent_class
-except ImportError: from ray.rllib.agents.registry import get_agent_class
-
 pp = 14516 / (107 + 14516)
 pno = 107 / (107 + 164579)
 nop = 107 / (107 + 14516)
@@ -20,8 +17,9 @@ PED_IDX_LST = [10, 11, 12, 13]
 PED_FRONT = PED_IDX_LST[0]
 PED_BACK = PED_IDX_LST[-1]
 
-def get_filtered_posteriors(env, controller, action, dummy_obs, joint_priors, agent_id, num_locs=4,
-                            noise_std=0.0):
+
+
+def get_filtered_posteriors(veh, action, joint_priors, num_locs=4, noise_std=0.0):
     """Black box predictor of the probability of pedestrian in each of the 4 crosswalk locations
     
     Parameters
@@ -60,8 +58,6 @@ def get_filtered_posteriors(env, controller, action, dummy_obs, joint_priors, ag
         (total of 2^4 pedestrian observation combinations and their 
         corresponding updated prior probabilities)    
     """
-    s_all = copy(dummy_obs)
-
     flag_set = ("0", "1")
 
     # Permutation lists
@@ -84,24 +80,27 @@ def get_filtered_posteriors(env, controller, action, dummy_obs, joint_priors, ag
     M_filter = 0
     for str_comb, lst_comb in zip(joint_ped_combos_str, joint_ped_combos_int_list):
 
-        s_all_modified = np.copy(
-            s_all)  # s_all_modified = hypothetical state that an agent observes
-        int_list = [int(element) for element in lst_comb]
-        s_all_modified[PED_IDX_LST] = int_list
+        # s_all_modified = np.copy(
+        #     s_all)  # s_all_modified = hypothetical state that an agent observes
+        # int_list = [int(element) for element in lst_comb]
+        peds = [bool(int(element)) for element in lst_comb]
+        # s_all_modified[PED_IDX_LST] = int_list
         #                                 _, _, logit = agent.compute_action(s_all_modified, policy_id=policy_map_fn(agent_id), full_fetch=True)
-        mu = controller.get_action_with_ped(env, s_all_modified, ped=int_list, change_speed_mode=False, always_return_action=True)
-        if mu is not None:
-            controller.get_action_with_ped(env, s_all_modified, ped=int_list, change_speed_mode=False, always_return_action=True)
+        front_v, rear_v = veh.road.neighbour_vehicles(veh)
+        mu = veh.acceleration(veh, front_v, rear_v, peds)  # controller.get_action_with_ped(env, s_all_modified, ped=int_list, change_speed_mode=False, always_return_action=True)
+        # if mu is not None:
+        #     controller.get_action_with_ped(env, s_all_modified, ped=int_list, change_speed_mode=False, always_return_action=True)
         # print(action, mu, str_comb)
         sigma = noise_std
         # noise up your model
-        
+
         if sigma > 0.0:
             # catching weird case for rulebasedintersection controller giving a none action
             if action == None:
                 # print("ACTION IS NONE")
                 joint_likelihood_density = 1
-            else:
+            else:                
+                # print(mu, np.random.normal(loc=0.0, scale=sigma))
 
                 mu += np.random.normal(loc=0.0, scale=sigma)
                 # joint_likelihood_density = max(min(accel_pdf(mu, sigma, action), 10.0), 0.01)
