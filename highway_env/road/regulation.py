@@ -7,6 +7,7 @@ from highway_env.road.road import Road, RoadNetwork
 from highway_env.road.lane import StraightLane
 from highway_env.vehicle.controller import ControlledVehicle, MDPVehicle
 from highway_env.vehicle.kinematics import Vehicle, Obstacle
+from highway_env.vehicle.l012vehicles import Pedestrian
 
 
 class RegulatedRoad(Road):
@@ -88,6 +89,9 @@ class RegulatedRoad(Road):
         for i in range(len(self.vehicles) - 1):
             for j in range(i+1, len(self.vehicles)):
                 # avoid crashes
+                # but not with pedestrians
+                if isinstance(self.vehicles[i], Pedestrian) or isinstance(self.vehicles[j], Pedestrian):
+                    continue
                 if self.is_conflict_possible(self.vehicles[i], self.vehicles[j]):
                     yielding_vehicle = self.respect_priorities(self.vehicles[i], self.vehicles[j])
                     if yielding_vehicle is not None and \
@@ -99,7 +103,8 @@ class RegulatedRoad(Road):
                         yielding_vehicle.yield_timer = 0
 
                 # if ped is crossing, slow down
-                self.check_ped_crossing(self.vehicles[i], self.vehicles[j])
+                if False:
+                    self.check_ped_crossing(self.vehicles[i], self.vehicles[j])
 
     @staticmethod
     def respect_priorities(v1: Vehicle, v2: Vehicle) -> Vehicle:
