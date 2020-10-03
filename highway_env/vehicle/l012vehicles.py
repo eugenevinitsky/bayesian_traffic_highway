@@ -77,7 +77,7 @@ class L0Vehicle(IDMVehicle):
                 # get next distance to make sure vehicle is going towards crossing
                 next_pos = self.predict_trajectory_constant_speed([0.01], use_lane_speed=True)[0][0]
                 next_dist_to_crossing = np.abs(next_pos[0] - crossing_pos[0]) + np.abs(next_pos[1] - crossing_pos[1])
-                if next_dist_to_crossing <= dist_to_crossing:
+                if next_dist_to_crossing <= dist_to_crossing or next_dist_to_crossing > dist_to_crossing + 10:
                     # car stops after v^2/2a meters if current speed is v and breaking with constant acceleration -a
                     if dist_to_crossing - self.params['safe_margin'] < self.speed * self.speed / (-2 * ACC_MIN):
                         accel = ACC_MIN
