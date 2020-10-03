@@ -259,7 +259,7 @@ class Road(Loggable):
 
     def close_vehicles_to(self, vehicle: 'kinematics.Vehicle', distance: float, count: int = None,
                           see_behind: bool = True,
-                          obscuration=True, fov=180, looking_distance=50, verbal=True) -> object:
+                          obscuration=True, fov=180, looking_distance=50, verbal=False) -> object:
         if obscuration:
             vehicles = [v for v in self.vehicles
                         if v is not vehicle
@@ -285,7 +285,7 @@ class Road(Loggable):
 
             if verbal:  # verbal print hidden & visible vehicles for debug
                 f1 = lambda x: x.LENGTH
-                f2 = lambda l: {2: 'pedestrian', 5: 'car', 10: 'bus'}[l]
+                f2 = lambda l: {2: 'pedestrian', 6: 'car', 10: 'bus'}[l]
                 print(f'visible: {list(map(f2, map(f1, vehicles)))}, hidden: {list(map(f2, map(f1, hidden_vehicles)))}')
 
         if count:
@@ -379,7 +379,7 @@ class Road(Loggable):
 
         return(max_angle, min_angle)
 
-    def get_corners(self, x, y, orientation, corner_angle, corner_dist, center_offset=3):
+    def get_corners(self, x, y, orientation, corner_angle, corner_dist, center_offset=0):
         corners = []
 
         adjusted_x = x - center_offset * math.cos(math.radians(orientation))
