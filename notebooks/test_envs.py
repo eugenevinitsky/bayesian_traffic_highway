@@ -7,6 +7,16 @@ from matplotlib import pyplot as plt
 from multiprocessing import Pool
 
 
+"""
+
+Scenarios 1 and 9 (L0 & L1 only) are operational 
+    (functional but design can be improving, ie vehicles leaving once ped is gone)
+
+Scenarios 2 and 10 (w/ L2) are in progress
+
+"""
+
+
 def run(scenario=1, inference_noise_std=0.0):
     env = gym.make('intersection-pedestrian-v0')
 
@@ -33,6 +43,9 @@ def run(scenario=1, inference_noise_std=0.0):
         if reward < -4:
             print('CRASH')
             return False
+
+        # for v in env.road.vehicles:
+        #     print(v, v.position)
 
         env.render()
 

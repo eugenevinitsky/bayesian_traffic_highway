@@ -35,15 +35,16 @@ class L0Vehicle(IDMVehicle):
         # L0 can see through obstacles
         self.is_obscured = False
         # position of center points of the 4 crossings
-        self.crossings_positions = [(0, 6), (-6, 0), (0, -6), (6, 0)]
+        self.crossings_positions = self.params['crossing_positions']
 
+    def precompute(self):
         # get which crossings the car will cross along its route
         ids_crossed = []
-        times = np.arange(0, 20, 0.5)
+        times = np.arange(0, 20, 0.2)
         for pred_pos in self.predict_trajectory_constant_speed(times, use_lane_speed=True)[0]:
             for crossing_id in range(4):
                 cpos = self.crossings_positions[crossing_id]
-                if np.abs(cpos[0] - pred_pos[0]) + np.abs(cpos[1] - pred_pos[1]) < 4:
+                if np.abs(cpos[0] - pred_pos[0]) + np.abs(cpos[1] - pred_pos[1]) < self.params['crossing_distance_detection']:
                     ids_crossed.append(crossing_id)
         self.ids_crossed = set(ids_crossed)
 
@@ -72,7 +73,7 @@ class L0Vehicle(IDMVehicle):
             if peds[idx] and idx in self.ids_crossed:
                 crossing_pos = self.crossings_positions[idx]
                 dist_to_crossing = np.abs(self.position[0] - crossing_pos[0]) + np.abs(self.position[1] - crossing_pos[1])
-                safe_margin = 10
+                safe_margin = self.params['safe_margin']
                 # car stops after v^2/2a meters if current speed is v and breaking with constant acceleration -a
                 if dist_to_crossing - safe_margin < self.speed * self.speed / (-2 * ACC_MIN):
                     accel = ACC_MIN

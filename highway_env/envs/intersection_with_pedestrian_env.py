@@ -172,7 +172,14 @@ class PedestrianIntersectionEnv(IntersectionEnv):
 
         def spawn_vehicle(lane, dest, pos, speed, heading=None, type="car", vclass=L0Vehicle, controlled=False):
             params = {
-                'inference_noise_std': self.config['inference_noise_std']
+                'inference_noise_std': self.config['inference_noise_std'],
+                # distance of the pedestrian crossing from the origin
+                'crossing_positions': [(4, 10), (-10, 0), (0, -10), (10, 0)] if self.config["scenario"] == 9 \
+                    else [(0, 6), (-6, 0), (0, -6), (6, 0)],
+                # distance to detect crossings
+                'crossing_distance_detection': 7 if self.config["scenario"] == 9 else 4,
+                # safe margin for vehicles to stop before crossings
+                'safe_margin': 8 if self.config["scenario"] == 9 else 10,
             }
             vehicle = vclass.make_on_lane(self.road, lane, longitudinal=pos, speed=speed, params=params)
 
@@ -227,17 +234,21 @@ class PedestrianIntersectionEnv(IntersectionEnv):
                 if self.config["scenario"] == 3:
                     spawn_ego(lane=("o1", "ir1", 0), dest="o0", pos=55)
             elif self.config["scenario"] == 9:
-                # spawn_vehicle(vclass=L1Vehicle, lane=("o0", "ir0", 1), dest="o3", pos=20, speed=9.0, type="car", controlled=True)
-                spawn_vehicle(vclass=L0Vehicle, lane=("o0", "ir0", 0), dest="o3", pos=60, speed=8.0, type="car", controlled=True) ##
-                # spawn_vehicle(vclass=L0Vehicle, lane=("o0", "ir0", 0), dest="o3", pos=40, speed=8.0, type="car")
-                # spawn_vehicle(vclass=L0Vehicle, lane=("o0", "ir0", 0), dest="o3", pos=30, speed=8.0, type="car")
-                spawn_vehicle(vclass=Pedestrian, lane=("p1", "p1_end", 0), dest="p1_end", pos=0, speed=2.0, type="ped")
+                spawn_vehicle(vclass=L1Vehicle, lane=("o0", "ir0", 1), dest="o3", pos=40, speed=9.0, type="car", controlled=True)
+                spawn_vehicle(vclass=L0Vehicle, lane=("o0", "ir0", 0), dest="o3", pos=60, speed=8.0, type="car")
+                spawn_vehicle(vclass=L0Vehicle, lane=("o0", "ir0", 0), dest="o3", pos=50, speed=8.0, type="car")
+                spawn_vehicle(vclass=L0Vehicle, lane=("o0", "ir0", 0), dest="o3", pos=40, speed=8.0, type="car")
+                spawn_vehicle(vclass=Pedestrian, lane=("p1", "p1_end", 0), dest="p1_end", pos=-3, speed=2.0, type="ped")
             elif self.config["scenario"] == 10:
                 spawn_ego(lane=("o0", "ir0", 1), dest="o3", pos=55)
                 # spawn_vehicle(lane=("o0", "ir0", 0), dest="o3", pos=78, speed=10.0, type="car")
                 spawn_vehicle(lane=("p1_inv", "p1_inv_end", 0), dest="p1_inv_end", pos=0, speed=2.0, type="ped")
             else:
                 raise ValueError(f"Scenario '{self.config['scenario']}' unknown.")
+
+            for v in self.road.vehicles:
+                if not isinstance(v, Pedestrian) and not isinstance(v, FullStop):
+                    v.precompute()
             return
 
         # Random vehicles
