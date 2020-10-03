@@ -63,7 +63,8 @@ class L0Vehicle(IDMVehicle):
                     start_edge = v.lane_index[0]
                     # start edge is p<idx> with idx = 0 south, 1 west, 2 north, 3 east
                     if start_edge.startswith("p"):  # and not start_edge.endswith("inv"):
-                        if True: # np.abs(v.position[0]) < 8 and np.abs(v.position[1]) < 8:  # if ped is within crossing
+                        if np.abs(v.position[0] - self.position[0]) < self.params['max_ped_detection_x']:
+                        # if True: np.abs(v.position[0]) < 8 and np.abs(v.position[1]) < 8:  # if ped is within crossing
                             # crossing ids = 0 east, 1 south, 2 west, 3 north; we want south to be 0, hence the -1 % 4
                             idx = (int(start_edge[1]) - 1) % 4
                             peds[idx] = True
@@ -73,10 +74,13 @@ class L0Vehicle(IDMVehicle):
             if peds[idx] and idx in self.ids_crossed:
                 crossing_pos = self.crossings_positions[idx]
                 dist_to_crossing = np.abs(self.position[0] - crossing_pos[0]) + np.abs(self.position[1] - crossing_pos[1])
-                safe_margin = self.params['safe_margin']
-                # car stops after v^2/2a meters if current speed is v and breaking with constant acceleration -a
-                if dist_to_crossing - safe_margin < self.speed * self.speed / (-2 * ACC_MIN):
-                    accel = ACC_MIN
+                # get next distance to make sure vehicle is going towards crossing
+                next_pos = self.predict_trajectory_constant_speed([0.01], use_lane_speed=True)[0][0]
+                next_dist_to_crossing = np.abs(next_pos[0] - crossing_pos[0]) + np.abs(next_pos[1] - crossing_pos[1])
+                if next_dist_to_crossing <= dist_to_crossing:
+                    # car stops after v^2/2a meters if current speed is v and breaking with constant acceleration -a
+                    if dist_to_crossing - self.params['safe_margin'] < self.speed * self.speed / (-2 * ACC_MIN):
+                        accel = ACC_MIN
 
         accel = np.clip(accel, ACC_MIN, ACC_MAX)
         return accel
@@ -125,7 +129,10 @@ class L1Vehicle(L0Vehicle):
             for veh in visible_cars:
                 # get action taken by car
                 front_v, rear_v = veh.road.neighbour_vehicles(veh)
-                car_accel = veh.acceleration(veh, front_v, rear_v)
+                if isinstance(veh, L2Vehicle):
+                    car_accel = veh.action['acceleration']
+                else:
+                    car_accel = veh.acceleration(veh, front_v, rear_v)
 
                 # get inferred peds probs and update priors
                 updated_ped_probs, priors[veh] = get_filtered_posteriors(
@@ -156,4 +163,11 @@ class L1Vehicle(L0Vehicle):
 class L2Vehicle(L0Vehicle):
     """L2 vehicle"""
     def act(self, action=None):
-        super().act(action)
+        if action and 'acceleration' in action:
+            action['acceleration'] = np.clip(action['acceleration'], ACC_MIN, ACC_MAX)
+        Vehicle.act(self, action)
+
+    def accel_no_ped(self):
+        # acceleration that L0 would take if there was no pedestrians
+        front_vehicle, rear_vehicle = self.road.neighbour_vehicles(self)
+        return super().acceleration(self, front_vehicle, rear_vehicle, peds=[False, False, False, False])
