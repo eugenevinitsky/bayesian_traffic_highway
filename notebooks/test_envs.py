@@ -2,6 +2,8 @@ import argparse
 import numpy as np
 import gym
 import highway_env
+import copy
+import random
 
 from matplotlib import pyplot as plt
 from multiprocessing import Pool
@@ -9,12 +11,63 @@ from multiprocessing import Pool
 
 """
 
-Scenarios 1 and 9 (L0 & L1 only) are operational 
-    (functional but design can be improving, ie vehicles leaving once ped is gone)
+Scenarios 1 and 9 (L0 & L1 only) and 10 (w/ L2) are operational 
+    (functional but design can be improving, ie vehicles leaving once ped is gone (cf if True in l012vehicles.py))
 
-Scenarios 2 and 10 (w/ L2) are in progress
 
 """
+
+def compute_reward(env):
+    """Compute the reward ourselves
+    Rwd = speed of ego vehicle - 100 * number of crashed vehicles"""
+    reward = env.vehicle.speed
+    for v in env.road.vehicles:
+        if v.crashed:
+            reward -= 100
+    return reward
+
+def MPC(environment, num_steps_per_simulation):
+    """Performs MPC for L2 actions"""
+    # to keep track of the return of each action for each simulation
+    action_returns = list()
+
+    # simulate 2^n simulations
+    for action_sequence in range(2 ** num_steps_per_simulation):
+        # copy environment so there's no need to reset anything
+        env_clone = copy.deepcopy(environment)
+
+        # initialize values
+        done = False
+        first_action = None
+        returns = 0.0
+
+        # compute sequence of actions to be done
+        binary = (("0" * 40) + "{0:b}".format(action_sequence))[::-1]
+
+        for i in range(num_steps_per_simulation):
+            # get the two possible actions (decel or accel)
+            action_decel = -1
+            action_accel = env_clone.vehicle.acceleration(env_clone.vehicle)
+
+            # get current action for current sequence
+            action = [action_decel, action_accel][int(binary[i])]
+            # execute action in copied environment
+            env_clone.step([action])
+            # compute reward
+            returns += compute_reward(env_clone)
+
+            if first_action is None:
+                first_action = action
+            if done:
+                break
+
+        action_returns.append((first_action, returns))
+
+    # get first action that yielded maximum return
+    ascending_action_returns = sorted(action_returns, key=lambda x: x[1])
+    best_action = ascending_action_returns[-1][0]
+
+    return best_action
 
 
 def run(scenario=1, inference_noise_std=0.0):
@@ -32,20 +85,18 @@ def run(scenario=1, inference_noise_std=0.0):
     # default behavior for cars is IDM
     env.config["other_vehicles_type"] = 'highway_env.vehicle.behavior.IDMVehicle'
 
-    # REMOVE THIS
-    # env.vehicle == ego vehicle
-    # env.road.vehicles == list of all vehicles on the road
-
     env.reset()
     for _ in range(50):
-        action = [.334] # accel between -1 and 1
+        if scenario in [10]:
+            action = [MPC(env, num_steps_per_simulation=5)]
+        else:
+            action = [0] # accel between -1 and 1 (doesnt have an impact)
         obs, reward, done, info = env.step(action)
-        if reward < -4:
+
+        reward = compute_reward(env)
+        if reward < 0:
             print('CRASH')
             return False
-
-        # for v in env.road.vehicles:
-        #     print(v, v.position)
 
         env.render()
 
