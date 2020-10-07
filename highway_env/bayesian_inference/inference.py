@@ -13,11 +13,6 @@ b = np.array([nop, pp])
 
 TRANSITION_MATRIX = np.array([a, b])
 
-PED_IDX_LST = [10, 11, 12, 13] 
-PED_FRONT = PED_IDX_LST[0]
-PED_BACK = PED_IDX_LST[-1]
-
-
 
 def get_filtered_posteriors(veh, action, joint_priors, num_locs=4, noise_std=0.0):
     """Black box predictor of the probability of pedestrian in each of the 4 crosswalk locations
@@ -79,31 +74,19 @@ def get_filtered_posteriors(veh, action, joint_priors, num_locs=4, noise_std=0.0
     # 2 f(a|e) # 4 M
     M_filter = 0
     for str_comb, lst_comb in zip(joint_ped_combos_str, joint_ped_combos_int_list):
-
-        # s_all_modified = np.copy(
-        #     s_all)  # s_all_modified = hypothetical state that an agent observes
-        # int_list = [int(element) for element in lst_comb]
         peds = [bool(int(element)) for element in lst_comb]
-        # s_all_modified[PED_IDX_LST] = int_list
-        #                                 _, _, logit = agent.compute_action(s_all_modified, policy_id=policy_map_fn(agent_id), full_fetch=True)
         front_v, rear_v = veh.road.neighbour_vehicles(veh)
-        mu = veh.acceleration(veh, front_v, rear_v, peds)  # controller.get_action_with_ped(env, s_all_modified, ped=int_list, change_speed_mode=False, always_return_action=True)
-        # if mu is not None:
-        #     controller.get_action_with_ped(env, s_all_modified, ped=int_list, change_speed_mode=False, always_return_action=True)
-        # print(action, mu, str_comb)
+        mu = veh.acceleration(veh, front_v, rear_v, peds, noise=False, infer=True)
+
         sigma = noise_std
-        # noise up your model
+        sigma = 0.0  # actually don't use noise for now
 
         if sigma > 0.0:
             # catching weird case for rulebasedintersection controller giving a none action
             if action == None:
-                # print("ACTION IS NONE")
                 joint_likelihood_density = 1
             else:                
-                # print(mu, np.random.normal(loc=0.0, scale=sigma))
-
-                mu += np.random.normal(loc=0.0, scale=sigma)
-                # joint_likelihood_density = max(min(accel_pdf(mu, sigma, action), 10.0), 0.01)
+                # mu += np.random.normal(loc=0.0, scale=sigma)
                 try:
                     joint_likelihood_density = accel_pdf(mu, sigma, action)
                 except:
@@ -115,10 +98,8 @@ def get_filtered_posteriors(veh, action, joint_priors, num_locs=4, noise_std=0.0
                 joint_likelihood_density = 0.01
         else:
             if action == None:
-                # print("ACTION IS NONE")
                 joint_likelihood_density = 1
             elif mu == action:
-                # print(f'mu == action')
                 joint_likelihood_density = 1
             else:
                 # we don't want to set it to zero exactly or else it'll always be zero
@@ -133,9 +114,7 @@ def get_filtered_posteriors(veh, action, joint_priors, num_locs=4, noise_std=0.0
             import ipdb; ipdb.set_trace()
 
         M_filter += joint_likelihood_density * filtered_prior
-        # print(f'M_filter += joint_likelihood_density * filtered_prior {M_filter} += {joint_likelihood_density} * {filtered_prior}')
-    # if action == -4.5:
-    #     import ipdb; ipdb.set_trace()
+
     # 5 p(e|a) joint posterior masses
     for str_comb in joint_ped_combos_str:
         # f(a|e)
@@ -144,7 +123,6 @@ def get_filtered_posteriors(veh, action, joint_priors, num_locs=4, noise_std=0.0
         filtered_prior = joint_priors[str_comb]
 
         # p(e|a)
-        # print(f"joint_likelihood_density * filtered_prior / M_filter is {joint_likelihood_density} * {filtered_prior} / {M_filter}") TODO remove debugging prints
         joint_posterior_filtered = joint_likelihood_density * filtered_prior / M_filter
         joint_posteriors_filter[str_comb].append(joint_posterior_filtered)
 
@@ -196,119 +174,15 @@ def get_filtered_posteriors(veh, action, joint_priors, num_locs=4, noise_std=0.0
     for loc_ in range(num_locs):
         single_prior_str = f'o_{loc_} = 1'
         ped_vals.append(single_priors_filter[single_prior_str][-1])
-        
+
     return ped_vals, joint_priors
 
-    # joint_priors = {}
-    # joint_posteriors = {}
-    # prob_ped_in_cross_walk = [None]*4
-    #
-    # flag_set = ("0", "1")
-    # single_ped_combs_str = single_ped_posteriors_strs(num_locs, flag_set)
-    # joint_ped_combos_str = all_ped_combos_strs(num_locs, flag_set)
-    #
-    # # Permutation lists
-    # joint_ped_combos_str = all_ped_combos_strs(num_locs, flag_set)
-    # joint_ped_combos_int_list = all_ped_combos_lsts(num_locs, flag_set)
-    # single_ped_combs_str = single_ped_posteriors_strs(num_locs, flag_set)
-    #
-    # # if this is the first timestep, we need to initialize the priors
-    # if priors == {}:
-    #     priors = {comb : [1 / len(flag_set)] for comb in single_ped_combs_str}
-    #
-    # # 3 Update joint priors p(o|a) = \prod_{o_i \in o} p(o_i)
-    # for str_comb in joint_ped_combos_str:
-    #     joint_prior = 1
-    #
-    #     single_ped_lst = joint_ped_combo_str_to_single_ped_combo(str_comb)
-    #     for single_ped in single_ped_lst:
-    #         joint_prior *= priors[single_ped][-1]
-    #
-    #     joint_priors[str_comb] = joint_prior
-    #
-    # # 2
-    # C = 0
-    # joint_likelihood_densities = {}
-    # for str_comb, lst_comb in zip(joint_ped_combos_str, joint_ped_combos_int_list):
-    #
-    #     s_all_modified = np.copy(dummy_obs) # s_all_modified = hypothetical state that an agent observes
-    #     s_all_modified[PED_IDX_LST] = lst_comb
-    #
-    #     if policy_type == "DQN":
-    #         _, _, logit = agent.compute_action(s_all_modified, policy_id='av', full_fetch=True)
-    #         q_vals = logit['q_values']
-    #         soft_max = scipy.special.softmax(q_vals)
-    #         joint_likelihood_density = soft_max[action_index]
-    #
-    #     elif policy_type == "imitation":
-    #         mu, sigma = agent.get_accel_gaussian_params_from_observation(s_all_modified)
-    #         sigma = sigma[0][0]
-    #         mu = mu[0]
-    #
-    #         # f(a|e)
-    #         joint_likelihood_density = accel_pdf(mu, sigma, action)
-    #
-    #     # this is the only one that works right now
-    #     elif policy_type == "rule_based":
-    #         mu = env.k.vehicle.get_acc_controller(agent).get_action_with_ped(env,
-    #                                                                             s_all_modified)
-    #         sigma = NOISE_STD
-    #         # noise up your model
-    #         if sigma > 0.0:
-    #             mu += np.random.normal(loc=0.0, scale=sigma)
-    #             joint_likelihood_density = max(min(accel_pdf(mu, sigma, action), 10.0), 0.01)
-    #         else:
-    #             if mu == action:
-    #                 joint_likelihood_density = 1
-    #             else:
-    #                 # we don't want to set it to zero exactly or else it'll always be zero
-    #                 joint_likelihood_density = 0.01
-    #
-    #     joint_likelihood_densities[str_comb].append(joint_likelihood_density)
-    #
-    #     # Get p(e), for f(a|e) p(e)
-    #     updated_prior = joint_priors[str_comb]
-    #
-    #     C += joint_likelihood_density * updated_prior
-    #
-    # # 5 p(e|a) joint posterior masses
-    # for str_comb in joint_ped_combos_str:
-    #     # f(a|e)
-    #     joint_likelihood_density = joint_likelihood_densities[str_comb][-1]
-    #     # p(e)
-    #     joint_prior = joint_priors_updated[str_comb][-1]
-    #
-    #     # p(e|a) = f(a|e) p(e) / C
-    #     joint_posterior = joint_likelihood_density * updated_prior / C
-    #     joint_posteriors[str_comb] = joint_posterior
-    #
-    # # 6 Single posterior probabilities p(o_i = 1|a) = sum relevant posteriors
-    # for loc_ in range(num_locs):
-    #     for val_ in flag_set:
-    #         single_posterior = 0
-    #         for key in ped_combos_one_loc_fixed_strs(loc_, val_):
-    #             single_posterior += joint_posteriors[key]
-    #         single_posterior_str = f'o_{loc_} = {val_}'
-    #         single_posteriors[single_posterior_str] = single_posterior
-    #
-    # for loc_ in range(num_locs):
-    #     val0, val1 = "0", "1"
-    #     single_0 = f'o_{loc_} = {val0}'
-    #     single_1 = f'o_{loc_} = {val1}'
-    #     filtered = TRANSITION_MATRIX @ np.array([single_posteriors_filter[single_0][-1], single_posteriors_filter[single_1][-1]])
-    #     single_posteriors[single_0], single_posteriors_filter[single_1] = filtered[0], filtered[1]
-    #
-    # for loc__ in range(num_locs):
-    #     single_1 = f'o_{loc__} = 1'
-    #     posterior_prob_ped[loc_] = single_posteriors[single_1]
-    #
-    # return prob_ped_in_cross_walk, single_posteriors
 
-    #############################
-    #############################
-    ###   Utility functions   ###
-    #############################
-    #############################
+#############################
+#############################
+###   Utility functions   ###
+#############################
+#############################
 
 def joint_ped_combo_str_to_single_ped_combo(joint_ped_combo_str):
     """Given a string of format '0 1 0 -1', return a list of all relevant single ped strings
