@@ -147,7 +147,7 @@ class DiscreteMetaAction(ActionType):
         3: 'FASTER',
         4: 'SLOWER'
     }
-    """A mapping of action indexes to labels.""" #TODO(KL) figure out how these commands map to values
+    """A mapping of action indexes to labels."""
 
     ACTIONS_LONGI = {
         0: 'SLOWER',

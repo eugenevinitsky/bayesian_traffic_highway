@@ -144,6 +144,8 @@ class IDMVehicle(ControlledVehicle):
             d = ego_vehicle.lane_distance_to(front_vehicle)
             acceleration -= self.COMFORT_ACC_MAX * \
                 np.power(self.desired_gap(ego_vehicle, front_vehicle) / utils.not_zero(d), 2)
+        # acceleration += np.random.normal()*0.1
+
         return acceleration
 
     def desired_gap(self, ego_vehicle: Vehicle, front_vehicle: Vehicle = None) -> float:
@@ -217,7 +219,7 @@ class IDMVehicle(ControlledVehicle):
         # else, at a given frequency,
         if not utils.do_every(self.LANE_CHANGE_DELAY, self.timer):
             return
-        self.timer = 0
+        # self.timer = 0
 
         # decide to make a lane change
         for lane_index in self.road.network.side_lanes(self.lane_index):

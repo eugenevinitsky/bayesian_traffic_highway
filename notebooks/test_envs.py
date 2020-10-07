@@ -4,18 +4,44 @@ import gym
 import highway_env
 import copy
 import random
-
-from matplotlib import pyplot as plt
 from multiprocessing import Pool
 
+from highway_env.vehicle.l012vehicles import L0Vehicle, L1Vehicle, L2Vehicle, Pedestrian, FullStop
 
-"""
+# matplotlib config
+import matplotlib.pyplot as plt
+from matplotlib import cycler
+plt.style.use("default")
+plt.rcParams.update(
+  {"lines.linewidth": 1.0,
+   "axes.grid": True,
+   "grid.linestyle": ":",
+   "axes.grid.axis": "both",
+   "axes.prop_cycle": cycler('color',
+                             ['0071bc', 'd85218', 'ecb01f',
+                              '7d2e8d', '76ab2f', '4cbded', 'a1132e']),
+   "xtick.top": True,
+   "xtick.minor.size": 0,
+   "xtick.direction": "in",
+   "xtick.minor.visible": True,
+   "ytick.right": True,
+   "ytick.minor.size": 0,
+   "ytick.direction": "in",
+   "ytick.minor.visible": True,
+   "legend.framealpha": 1.0,
+   "legend.edgecolor": "black",
+   "legend.fancybox": False,
+   "figure.figsize": (2.7, 2.7),
+   "figure.autolayout": False,
+   "savefig.dpi": 300,
+   "savefig.format": "pdf",
+   "savefig.bbox": "tight",
+   "savefig.pad_inches": 0.01,
+   "savefig.transparent": True
+  }
+)
+COLORS = plt.rcParams["axes.prop_cycle"].by_key()["color"]
 
-Scenarios 1 and 9 (L0 & L1 only) and 10 (w/ L2) are operational 
-    (functional but design can be improving, ie vehicles leaving once ped is gone (cf if True in l012vehicles.py))
-
-
-"""
 
 def compute_reward(env):
     """Compute the reward ourselves
@@ -35,6 +61,14 @@ def MPC(environment, num_steps_per_simulation):
     for action_sequence in range(2 ** num_steps_per_simulation):
         # copy environment so there's no need to reset anything
         env_clone = copy.deepcopy(environment)
+        # reset L1 priors since L2 can't know them
+        env_clone.reset_priors()
+
+        # remove vehicles that can't be seen initially so we don't simulate them
+        visible_vehs = env_clone.road.close_vehicles_to(env_clone.vehicle, obscuration=True)
+        for v in env_clone.road.vehicles:
+            if v not in visible_vehs and v != env_clone.vehicle and isinstance(v, Pedestrian):
+                env_clone.road.vehicles.remove(v)
 
         # initialize values
         done = False
@@ -47,7 +81,7 @@ def MPC(environment, num_steps_per_simulation):
         for i in range(num_steps_per_simulation):
             # get the two possible actions (decel or accel)
             action_decel = -1
-            action_accel = env_clone.vehicle.acceleration(env_clone.vehicle)
+            action_accel = 1 #env_clone.vehicle.accel_no_ped() #env_clone.vehicle)
 
             # get current action for current sequence
             action = [action_decel, action_accel][int(binary[i])]
@@ -85,12 +119,17 @@ def run(scenario=1, inference_noise_std=0.0):
     # default behavior for cars is IDM
     env.config["other_vehicles_type"] = 'highway_env.vehicle.behavior.IDMVehicle'
 
+    # number of simulation steps
+    n_steps = 30
+
     env.reset()
-    for _ in range(50):
-        if scenario in [10]:
+    for i in range(n_steps):
+        if scenario in [2, 10]:
+            # scenarios with L2 controller
             action = [MPC(env, num_steps_per_simulation=5)]
         else:
-            action = [0] # accel between -1 and 1 (doesnt have an impact)
+            # scenarios without L2 (actions are not computed here)
+            action = [0]
         obs, reward, done, info = env.step(action)
 
         reward = compute_reward(env)
@@ -100,23 +139,63 @@ def run(scenario=1, inference_noise_std=0.0):
 
         env.render()
 
-    # plot 1
-    if False:
-        plot_data = env.controlled_vehicles[0].plot_data
-        l0_accel = np.array(plot_data['l0_accel'])
-        l1_accel = np.array(plot_data['l1_accel'])
-        ped_probs = np.array(plot_data['ped_probs'])
+    # acceleration and probabilities plots
+    if True:
+        # retrieve plot data
+        for v in env.road.vehicles:
+            if hasattr(v, 'plot_data'):
+                plot_data = v.plot_data
+                break
 
-        print(l0_accel.shape, l1_accel.shape, ped_probs.shape)
         
-        plt.figure()
-        plt.plot(l0_accel, label='L0 accel')
-        plt.plot(l1_accel, label='L1 accel')
-        for i in range(4):
-            plt.plot(ped_probs[:,i], label=f"Ped probs ({['south', 'west', 'north', 'east'][i]})", linestyle='--')
-        plt.legend(loc='lower center')
-        plt.title('Scenario 1')
-        plt.show()
+        all_data = []
+        for k in plot_data.keys():
+            if not isinstance(k, str):
+                data = plot_data[k]
+                times = [d[0] for d in data]
+                speeds = [d[1] for d in data]
+                accels = [d[2] for d in data]
+
+                # i = 0
+                # while i < len(times) and times[i] < 999:
+                #     i += 1
+                # times = times[:i]
+                # speeds = speeds[:i]
+                # accels = accels[:i]
+
+                all_data.append((times, speeds, accels, k))
+
+        if scenario == 9:
+            # for scenario 9, only plot one L0 vehicle
+            all_data = all_data[:2]
+
+        if True:
+            # accel plot
+            plt.figure()
+            for times, speeds, accels, key in all_data:
+                if isinstance(key, L0Vehicle): lb = 'L0'
+                if isinstance(key, L1Vehicle): lb = 'L1'
+                if isinstance(key, L2Vehicle): lb = 'L2'
+                plt.plot(times, accels, label=lb)
+            plt.title('Time vs. Acceleration')
+            plt.ylabel('Acceleration (m/s²)')
+            plt.xlabel('Time (s)')
+            
+            plt.legend()
+            plt.savefig(f'figs/scenario_{scenario}_accel.png')
+
+        if True:
+            # probabilities plot
+            plt.figure()
+            for i in range(4):
+                plt.plot(plot_data['time'], np.array(plot_data['ped_probs'])[:,i], label=f"{['South', 'West', 'North', 'East'][i]}")
+            plt.title('Time vs. Inferred Probabilities')
+            plt.ylabel('Probability')
+            plt.xlabel('Time (s)')
+            plt.xlim(left=all_data[0][0][0], right=all_data[0][0][-1])
+
+            plt.legend()
+            plt.savefig(f'figs/scenario_{scenario}_probs.png')
 
     return True
 
@@ -130,22 +209,9 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     scenario = args.scenario
-    run(scenario)
+    run(scenario, inference_noise_std=0)
 
-    # plots 2
-    if False:
-        def f(noise):
-            np.random.seed(int(noise*10000))
-            print(noise)
-            return run(scenario=1, inference_noise_std=noise)
-
-        with Pool(17) as p:
-            lst = [50 + i/1000 for i in range(50)]
-            res = p.map(f, lst)
-            print(res)
-            print(np.count_nonzero(res) / len(res))
-
-
+    # noise vs number of crashes plot
     if False:
         def f(noise, scenario=1, n_runs=50):
             results = []
@@ -166,9 +232,8 @@ if __name__ == "__main__":
                 y.append(prct)
 
         plt.figure()
-        plt.title('Scenario 1')
+        plt.title(f'Scenario {scenario}')
         plt.xlabel('Inference std noise')
         plt.ylabel('% of scenarios that dont crash (over 50 scenarios)')
         plt.plot(noises, y)
-        plt.show()
-        
+        plt.show()       

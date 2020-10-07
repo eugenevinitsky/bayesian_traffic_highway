@@ -257,9 +257,9 @@ class Road(Loggable):
         self.np_random = np_random if np_random else np.random.RandomState()
         self.record_history = record_history
 
-    def close_vehicles_to(self, vehicle: 'kinematics.Vehicle', distance: float, count: int = None,
-                          see_behind: bool = True,
-                          obscuration=True, fov=180, looking_distance=50, verbal=False) -> object:
+    def close_vehicles_to(self, vehicle: 'kinematics.Vehicle', distance=50, count=5,
+                          see_behind=False,
+                          obscuration=True, fov=120, looking_distance=50, verbal=False) -> object:
         if obscuration:
             vehicles = [v for v in self.vehicles
                         if v is not vehicle
