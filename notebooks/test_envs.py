@@ -126,7 +126,15 @@ def run(scenario=1, inference_noise_std=0.0):
     for i in range(n_steps):
         if scenario in [2, 10]:
             # scenarios with L2 controller
-            action = [MPC(env, num_steps_per_simulation=5)]
+            if False:
+                # hardcode MPC action for fast plotting (this is for scenario 2)
+                if i == 0: action = [-1]
+                elif i == 1: action = [1]
+                elif i == 2: action = [-1]
+                elif i == 3: action = [1]
+                else: action = [1]
+            else:
+                action = [MPC(env, num_steps_per_simulation=5)]
         else:
             # scenarios without L2 (actions are not computed here)
             action = [0]
