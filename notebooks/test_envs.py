@@ -31,7 +31,7 @@ plt.rcParams.update(
    "legend.framealpha": 1.0,
    "legend.edgecolor": "black",
    "legend.fancybox": False,
-   "figure.figsize": (2.7, 2.7),
+   "figure.figsize": (3, 6),
    "figure.autolayout": False,
    "savefig.dpi": 300,
    "savefig.format": "pdf",
@@ -177,34 +177,32 @@ def run(scenario=1, inference_noise_std=0.0):
             # for scenario 9, only plot one L0 vehicle
             all_data = all_data[:2]
 
+        # plt.figure()
+        fig, axs = plt.subplots(2, 1, constrained_layout=True)
+
         if True:
             # accel plot
-            plt.figure()
             for times, speeds, accels, key in all_data:
                 if isinstance(key, L0Vehicle): lb = 'L0'
                 if isinstance(key, L1Vehicle): lb = 'L1'
                 if isinstance(key, L2Vehicle): lb = 'L2'
-                plt.plot(times, accels, label=lb)
-            plt.title('Time vs. Acceleration')
-            plt.ylabel('Acceleration (m/s²)')
-            plt.xlabel('Time (s)')
+                axs[0].plot(times, accels, label=lb)
+            axs[0].set_title('Time vs. Acceleration')
+            axs[0].set_ylabel('Acceleration (m/s²)')
+            axs[0].set_xlabel('Time (s)')
+            axs[0].legend()
             
-            plt.legend()
-            plt.savefig(f'figs/scenario_{scenario}_accel.png')
-
         if True:
             # probabilities plot
-            plt.figure()
             for i in range(4):
-                plt.plot(plot_data['time'], np.array(plot_data['ped_probs'])[:,i], label=f"{['South', 'West', 'North', 'East'][i]}")
-            plt.title('Time vs. Inferred Probabilities')
-            plt.ylabel('Probability')
-            plt.xlabel('Time (s)')
-            plt.xlim(left=all_data[0][0][0], right=all_data[0][0][-1])
+                axs[1].plot(plot_data['time'], np.array(plot_data['ped_probs'])[:,i], label=f"{['South', 'West', 'North', 'East'][i]}")
+            axs[1].set_title('Time vs. Inferred Probabilities')
+            axs[1].set_ylabel('Probability')
+            axs[1].set_xlabel('Time (s)')
+            axs[1].set_xlim(left=all_data[0][0][0], right=all_data[0][0][-1])
+            axs[1].legend()
 
-            plt.legend()
-            plt.savefig(f'figs/scenario_{scenario}_probs.png')
-
+        plt.savefig(f'figs/scenario_{scenario}.png')
     return True
 
 
