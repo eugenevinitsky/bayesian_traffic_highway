@@ -260,6 +260,8 @@ class Road(Loggable):
     def close_vehicles_to(self, vehicle: 'kinematics.Vehicle', distance=50, count=5,
                           see_behind=False,
                           obscuration=True, fov=120, looking_distance=50, verbal=False) -> object:
+        """Returns count closest vehicles to vehicle."""
+
         if obscuration:
             vehicles = [v for v in self.vehicles
                         if v is not vehicle

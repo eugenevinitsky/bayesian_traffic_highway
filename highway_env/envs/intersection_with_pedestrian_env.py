@@ -16,6 +16,11 @@ from highway_env.vehicle.behavior import IDMVehicle
 from highway_env.vehicle.l012vehicles import L0Vehicle, L1Vehicle, L2Vehicle, Pedestrian, FullStop
 
 class PedestrianIntersectionEnv(IntersectionEnv):
+
+    def __init__(self):
+        super().__init__()
+        self.arrival_position = dict()
+        
     @classmethod
     def default_config(cls) -> dict:
         config = super().default_config()
@@ -165,6 +170,20 @@ class PedestrianIntersectionEnv(IntersectionEnv):
 
         road = RegulatedRoad(network=net, np_random=self.np_random, record_history=self.config["show_trajectories"])
         self.road = road
+
+    def _reset(self) -> None:
+        super()._reset()
+        self.set_observer_vehicle('L0Vehcile')
+
+    def set_observer_vehicle(self, veh_type):
+        """Set observer vehicle to any vehicle of type veh_type
+        
+        @Parameters
+        veh_type: string
+        """
+        for v in self.road.vehicles:
+            if 'L0Vehicle' in str(type(v)):
+                self.observation_type.set_observer_vehicle(v)
 
     def reset_priors(self):
         for v in self.road.vehicles:

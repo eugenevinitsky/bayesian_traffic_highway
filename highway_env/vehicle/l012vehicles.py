@@ -9,6 +9,7 @@ from highway_env.vehicle.behavior import IDMVehicle
 from highway_env import utils
 from highway_env.vehicle.kinematics import Vehicle
 from highway_env.road.objects import RoadObject
+from highway_env.road.lane import StraightLane
 from highway_env.bayesian_inference.inference import get_filtered_posteriors
 from highway_env import utils
 
@@ -30,7 +31,16 @@ class Pedestrian(IDMVehicle):
             self.road.vehicles.remove(self)
 
 class L0Vehicle(IDMVehicle):
-    """Rule-based vehicle that obeys normal traffic rules"""
+    """Rule-based vehicle that obeys normal traffic rules
+    
+    States for imitation or RL
+    
+    ego-states: x, y, vx, vy, heading, arrival order 
+    ped_states: ped vector of length 4
+    non-ego-states: x, y, vx, vy, heading, arrival order 
+
+    Assumption, everyone drives straight
+    """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # L0 can see through obstacles
@@ -38,6 +48,30 @@ class L0Vehicle(IDMVehicle):
         # position of center points of the 4 crossings
         self.crossings_positions = self.params['crossing_positions']
         self.accel = 0
+        # arrival order from our P.O.V
+        self.arrival_order = dict()
+        # state names
+        self.ego_states_names = ["x", "y", "vx", "vy", "heading", "arrival_order"]
+        self.ped_states_names = ["ped_1", "ped_2", "ped_3", "ped_4"]
+        self.non_ego_states_names = ["x", "y", "vx", "vy", "heading", "arrival_order"]
+        self.max_other_vehs = 3
+        
+    def arrived_at_intersection(self, v):
+        """Arrived at intersection means vehicle v is 2m or less away from intersection"""
+        threshold_arrival = 2 # threshold to be detected as arriving to intersection
+
+        origin, dest, _ = lane = self.road.network.get_closest_lane_index(v.position)
+        lane_geometry = self.road.network.get_lane(lane)
+
+        if origin.startswith("o"):
+            # going towards intersection
+            assert isinstance(lane_geometry, StraightLane)
+            _, lane_end = lane_geometry.start, lane_geometry.end
+            v_dist = np.linalg.norm(lane_end - v.position)  # distance to intersection
+
+            return v_dist < threshold_arrival
+        
+        return False 
 
     def precompute(self):
         # get which crossings the car will cross along its route
@@ -56,19 +90,14 @@ class L0Vehicle(IDMVehicle):
         if isinstance(rear_vehicle, Pedestrian): rear_vehicle = None
         accel = super().acceleration(ego_vehicle, front_vehicle, rear_vehicle)
 
+        # compute arrival orders
+        for v in self.road.vehicles:
+            if not (isinstance(v, Pedestrian) or isinstance(v, FullStop)):
+                if self.arrived_at_intersection(v) and not self.arrival_order.get(v, False):
+                    self.arrival_order[v] = len(self.arrival_order) + 1
+
         # get crossings where there are pedestrians (without obstruction) unless provided
-        if not peds:
-            assert (not self.is_obscured)  # to make sure there's no bug since L1 and L2 use this method
-            peds = [False] * 4  # south, west, north, east
-            for v in self.road.vehicles:
-                if isinstance(v, Pedestrian):
-                    start_edge = v.lane_index[0]
-                    # start edge is p<idx> with idx = 0 south, 1 west, 2 north, 3 east
-                    if start_edge.startswith("p"):  # and not start_edge.endswith("inv"):
-                        if np.abs(v.position[0] - self.position[0]) < self.params['max_ped_detection_x']:
-                            # crossing ids = 0 east, 1 south, 2 west, 3 north; we want south to be 0, hence the -1 % 4
-                            idx = (int(start_edge[1]) - 1) % 4
-                            peds[idx] = True
+        peds = self.get_ped_state(peds)
 
         # if a crossing with a ped is on the path, start breaking when we need to
         for idx in range(4):
@@ -89,12 +118,59 @@ class L0Vehicle(IDMVehicle):
                         # for scenario 2, more conservative behavior 
                         if self.params['scenario'] == 2:
                             accel = ACC_MIN / 2
- 
+
         accel = np.clip(accel, ACC_MIN, ACC_MAX)
+
         if not infer:
             self.accel = accel
 
+        peds = list(map(lambda x: int(x), peds))
+        ego_states = [self.position[0], self.position[1], self.heading, self.speed, self.arrival_order.get(self, -1)]
+        
+        non_ego_states = []
+        # compute arrival orders
+        for v in self.road.vehicles:
+            if not (v == self or (isinstance(v, Pedestrian) or isinstance(v, FullStop))):
+                v_state = [v.position[0], v.position[1], v.heading, v.speed, v.arrival_order.get(v, -1)]
+                non_ego_states += v_state
+
+        self.state = ego_states + peds + non_ego_states
+        extra_states = len(self.ego_states_names) + len(self.ped_states_names) + self.max_other_vehs * len(self.non_ego_states_names) - len(self.state)
+        self.state += [0] * extra_states
+
         return accel
+
+    def get_ped_state(self, peds=None):
+        # get crossings where there are pedestrians (without obstruction) unless provided
+        if not peds:
+            assert (not self.is_obscured)  # to make sure there's no bug since L1 and L2 use this method
+            peds = [False] * 4  # south, west, north, east
+            for v in self.road.vehicles:
+                if isinstance(v, Pedestrian):
+                    start_edge = v.lane_index[0]
+                    # start edge is p<idx> with idx = 0 south, 1 west, 2 north, 3 east
+                    if start_edge.startswith("p"):  # and not start_edge.endswith("inv"):
+                        if np.abs(v.position[0] - self.position[0]) < self.params['max_ped_detection_x']:
+                            # crossing ids = 0 east, 1 south, 2 west, 3 north; we want south to be 0, hence the -1 % 4
+                            idx = (int(start_edge[1]) - 1) % 4
+                            peds[idx] = True
+        return peds
+
+    def get_state(self):
+        """Return state vector for current vehicle"""
+        peds = list(map(lambda x: int(x), peds))
+        ego_states = [self.position[0], self.position[1], self.heading, self.speed, self.arrival_order.get(self, -1)]
+        
+        non_ego_states = []
+        # compute arrival orders
+        for v in self.road.vehicles:
+            if not (v == self or (isinstance(v, Pedestrian) or isinstance(v, FullStop))):
+                v_state = [v.position[0], v.position[1], v.heading, v.speed, v.arrival_order.get(v, -1)]
+                non_ego_states += v_state
+
+        self.state = ego_states + peds + non_ego_states
+        extra_states = len(self.ego_states_names) + len(self.ped_states_names) + self.max_other_vehs * len(self.non_ego_states_names) - len(self.state)
+        self.state += [0] * extra_states
 
 class L1Vehicle(L0Vehicle):
     """Rule based vehicle (L0) operating on an inferred belief state"""
@@ -123,6 +199,9 @@ class L1Vehicle(L0Vehicle):
         if front_vehicle not in visible_vehs: front_vehicle = None
         if rear_vehicle not in visible_vehs: rear_vehicle = None
 
+        # compute cars visible by L1, which are inferred as L0 cars
+        visible_cars = [v for v in visible_vehs if not isinstance(v, Pedestrian) and not isinstance(v, FullStop)]
+
         # get peds visible by L1
         peds_visible = [v for v in visible_vehs if isinstance(v, Pedestrian)] if self.see_peds else []
 
@@ -135,9 +214,6 @@ class L1Vehicle(L0Vehicle):
 
         # compute default accel for L1
         accel = super().acceleration(ego_vehicle, front_vehicle, None, peds=peds, infer=True)
-
-        # compute cars visible by L1, which are inferred as L0 cars
-        visible_cars = [v for v in visible_vehs if not isinstance(v, Pedestrian) and not isinstance(v, FullStop)]
 
         # inference loop
         if self.do_inference:
