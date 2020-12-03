@@ -66,8 +66,8 @@ class IntersectionEnv(AbstractEnv):
                / len(self.controlled_vehicles)
 
     def _agent_reward(self, action: int, vehicle: Vehicle) -> float:
-        reward = self.config["collision_reward"] * vehicle.crashed \
-                 + self.HIGH_SPEED_REWARD * (vehicle.speed_index == vehicle.SPEED_COUNT - 1)
+        reward = self.config["collision_reward"] * vehicle.crashed #\
+                 #+ self.HIGH_SPEED_REWARD * (vehicle.speed_index == vehicle.SPEED_COUNT - 1)
         reward = self.ARRIVED_REWARD if self.has_arrived(vehicle) else reward
         if self.config["normalize_reward"]:
             reward = utils.lmap(reward, [self.config["collision_reward"], self.ARRIVED_REWARD], [0, 1])
@@ -88,7 +88,7 @@ class IntersectionEnv(AbstractEnv):
         self._make_road()
         self._make_vehicles(self.config["initial_vehicle_count"])
 
-    def step(self, action: int) -> Tuple[np.ndarray, float, bool, dict]:
+    def step(self, action: float) -> Tuple[np.ndarray, float, bool, dict]:
         obs, reward, done, info = super().step(action)
         self._clear_vehicles()
         self._spawn_vehicle(spawn_probability=self.config["spawn_probability"])
@@ -162,8 +162,8 @@ class IntersectionEnv(AbstractEnv):
         # Configure vehicles
         vehicle_type = utils.class_from_path(self.config["other_vehicles_type"])
         vehicle_type.DISTANCE_WANTED = 7  # Low jam distance
-        vehicle_type.COMFORT_ACC_MAX = 6
-        vehicle_type.COMFORT_ACC_MIN = -3
+        vehicle_type.COMFORT_ACC_MAX = 2.6
+        vehicle_type.COMFORT_ACC_MIN = -4.5
 
         # Random vehicles
         simulation_steps = 3

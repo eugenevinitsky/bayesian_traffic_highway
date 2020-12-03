@@ -52,7 +52,7 @@ class Vehicle(Loggable):
         self.history = deque(maxlen=30)
 
     @classmethod
-    def make_on_lane(cls, road: Road, lane_index: LaneIndex, longitudinal: float, speed: float = 0) -> "Vehicle":
+    def make_on_lane(cls, road: Road, lane_index: LaneIndex, longitudinal: float, speed: float = 0, params = {}) -> "Vehicle":
         """
         Create a vehicle on a given lane at a longitudinal position.
 
@@ -65,7 +65,7 @@ class Vehicle(Loggable):
         lane = road.network.get_lane(lane_index)
         if speed is None:
             speed = lane.speed_limit
-        return cls(road, lane.position(longitudinal, 0), lane.heading_at(longitudinal), speed)
+        return cls(road, lane.position(longitudinal, 0), lane.heading_at(longitudinal), speed, params=params)
 
     @classmethod
     def create_random(cls, road: Road, speed: float = None, spacing: float = 1) -> "Vehicle":
@@ -134,6 +134,8 @@ class Vehicle(Loggable):
         self.position += v * dt
         self.heading += self.speed * np.sin(beta) / (self.LENGTH / 2) * dt
         self.speed += self.action['acceleration'] * dt
+        # ensure decelerations don't cause negative speeds
+        if self.speed < 0: self.speed = 0
         self.on_state_update()
 
     def clip_actions(self) -> None:

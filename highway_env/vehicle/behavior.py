@@ -52,10 +52,12 @@ class IDMVehicle(ControlledVehicle):
                  target_speed: float = None,
                  route: Route = None,
                  enable_lane_change: bool = True,
-                 timer: float = None):
+                 timer: float = None,
+                 params = {}):
         super().__init__(road, position, heading, speed, target_lane_index, target_speed, route)
         self.enable_lane_change = enable_lane_change
         self.timer = timer or (np.sum(self.position)*np.pi) % self.LANE_CHANGE_DELAY
+        self.params = params
 
     def randomize_behavior(self):
         pass
@@ -138,10 +140,12 @@ class IDMVehicle(ControlledVehicle):
         acceleration = self.COMFORT_ACC_MAX * (
                 1 - np.power(max(ego_vehicle.speed, 0) / ego_target_speed, self.DELTA))
 
-        if front_vehicle:
+        if front_vehicle and not self.LENGTH < 2.1:
             d = ego_vehicle.lane_distance_to(front_vehicle)
             acceleration -= self.COMFORT_ACC_MAX * \
                 np.power(self.desired_gap(ego_vehicle, front_vehicle) / utils.not_zero(d), 2)
+        # acceleration += np.random.normal()*0.1
+
         return acceleration
 
     def desired_gap(self, ego_vehicle: Vehicle, front_vehicle: Vehicle = None) -> float:
@@ -215,7 +219,7 @@ class IDMVehicle(ControlledVehicle):
         # else, at a given frequency,
         if not utils.do_every(self.LANE_CHANGE_DELAY, self.timer):
             return
-        self.timer = 0
+        # self.timer = 0
 
         # decide to make a lane change
         for lane_index in self.road.network.side_lanes(self.lane_index):

@@ -123,6 +123,7 @@ class AbstractEnv(gym.Env):
         self.observation_type = observation_factory(self, self.config["observation"])
         self.action_type = action_factory(self, self.config["action"])
         self.observation_space = self.observation_type.space()
+        # import ipdb; ipdb.set_trace()
         self.action_space = self.action_type.space()
 
     def _reward(self, action: Action) -> float:

@@ -184,7 +184,7 @@ class ControlledVehicle(Vehicle):
                 _to = self.road.np_random.randint(len(routes))
             self.route = routes[_to % len(routes)]
 
-    def predict_trajectory_constant_speed(self, times: np.ndarray) -> Tuple[List[np.ndarray], List[float]]:
+    def predict_trajectory_constant_speed(self, times: np.ndarray, use_lane_speed: bool = False) -> Tuple[List[np.ndarray], List[float]]:
         """
         Predict the future positions of the vehicle along its planned route, under constant speed
 
@@ -193,7 +193,8 @@ class ControlledVehicle(Vehicle):
         """
         coordinates = self.lane.local_coordinates(self.position)
         route = self.route or [self.lane_index]
-        return tuple(zip(*[self.road.network.position_heading_along_route(route, coordinates[0] + self.speed * t, 0)
+        speed = self.lane.speed_limit if use_lane_speed else self.speed
+        return tuple(zip(*[self.road.network.position_heading_along_route(route, coordinates[0] + speed * t, 0)
                      for t in times]))
 
 
@@ -217,6 +218,9 @@ class MDPVehicle(ControlledVehicle):
         self.speed_index = self.speed_to_index(self.target_speed)
         self.target_speed = self.index_to_speed(self.speed_index)
 
+    def randomize_behavior(self):
+        pass
+    
     def act(self, action: Union[dict, str] = None) -> None:
         """
         Perform a high-level action.
@@ -297,3 +301,5 @@ class MDPVehicle(ControlledVehicle):
                 if (t % int(trajectory_timestep / dt)) == 0:
                     states.append(copy.deepcopy(v))
         return states
+
+    

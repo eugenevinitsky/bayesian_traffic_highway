@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import logging
 from typing import List, Tuple, Dict, TYPE_CHECKING, Optional
+import math
 
 from highway_env.logger import Loggable
 from highway_env.road.lane import LineType, StraightLane, AbstractLane
@@ -45,8 +46,9 @@ class RoadNetwork(object):
         :return: the corresponding lane geometry.
         """
         _from, _to, _id = index
-        if _id is None and len(self.graph[_from][_to]) == 1:
+        if _id is None: #and len(self.graph[_from][_to]) == 1:
             _id = 0
+
         return self.graph[_from][_to][_id]
 
     def get_closest_lane_index(self, position: np.ndarray) -> LaneIndex:
@@ -255,16 +257,40 @@ class Road(Loggable):
         self.np_random = np_random if np_random else np.random.RandomState()
         self.record_history = record_history
 
-    def close_vehicles_to(self, vehicle: 'kinematics.Vehicle', distance: float, count: int = None,
-                          see_behind: bool = True) -> object:
-        vehicles = [v for v in self.vehicles
-                    if np.linalg.norm(v.position - vehicle.position) < distance
-                    and v is not vehicle
-                    and (see_behind or -2 * vehicle.LENGTH < vehicle.lane_distance_to(v))]
+    def close_vehicles_to(self, vehicle: 'kinematics.Vehicle', distance=50, count=5,
+                          see_behind=False,
+                          obscuration=True, fov=120, looking_distance=50, verbal=False) -> object:
+        if obscuration:
+            vehicles = [v for v in self.vehicles
+                        if v is not vehicle
+                        and self.observed(vehicle.position, math.degrees(vehicle.heading), v.position, fov=fov, looking_distance=looking_distance)]
+        else:
+            vehicles = [v for v in self.vehicles
+                        if np.linalg.norm(v.position - vehicle.position) < distance
+                        and v is not vehicle
+                        and (see_behind or -2 * vehicle.LENGTH < vehicle.lane_distance_to(v))]
 
         vehicles = sorted(vehicles, key=lambda v: abs(vehicle.lane_distance_to(v)))
+
+        if obscuration:
+            blocked = {v: self.get_blocked_segments(
+                vehicle.position,
+                v.position,
+                math.degrees(v.heading),
+                v.LENGTH, v.WIDTH
+            ) for v in vehicles}
+
+            hidden_vehicles = [v for v in vehicles if self.check_blocked(vehicle.position, v.position, blocked, v)]  # if needed
+            vehicles = [v for v in vehicles if v not in hidden_vehicles]  # visible vehicles
+
+            if verbal:  # verbal print hidden & visible vehicles for debug
+                f1 = lambda x: x.LENGTH
+                f2 = lambda l: {2: 'pedestrian', 6: 'car', 10: 'bus'}[l]
+                print(f'visible: {list(map(f2, map(f1, vehicles)))}, hidden: {list(map(f2, map(f1, hidden_vehicles)))}')
+
         if count:
             vehicles = vehicles[:count]
+
         return vehicles
 
     def act(self) -> None:
@@ -333,3 +359,103 @@ class Road(Loggable):
 
     def __repr__(self):
         return self.vehicles.__repr__()
+
+    # utils for obscuration code
+    # see https://github.com/eugenevinitsky/bayesian_reasoning_traffic/blob/nliu/training/flow/core/kernel/util.py for full doc
+    def get_blocked_segments(self, position, target_position, target_orientation, target_length, target_width):
+        """Define a line segment that blocks the observation vehicle's line of sight"""
+        corner_angle = math.degrees(math.atan(target_width / target_length))
+        corner_dist = self.euclidian_distance(target_length / 2, target_width / 2)
+
+        corners = self.get_corners(target_position[0], target_position[1], target_orientation, \
+                corner_angle, corner_dist)
+
+        angles = []
+        for i, c in enumerate(corners):
+            angles.append((i, self.get_angle(position[0] - c[0], position[1] - c[1])))
+
+        max_angle = corners[max(angles, key=lambda x: x[1])[0]]
+        min_angle = corners[min(angles, key=lambda x: x[1])[0]]
+
+        return(max_angle, min_angle)
+
+    def get_corners(self, x, y, orientation, corner_angle, corner_dist, center_offset=0):
+        corners = []
+
+        adjusted_x = x - center_offset * math.cos(math.radians(orientation))
+        adjusted_y = y - center_offset * math.sin(math.radians(orientation))
+
+        t_angle = math.radians((orientation + corner_angle) % 360)
+        corners.append((adjusted_x + math.cos(t_angle) * corner_dist, \
+                adjusted_y + math.sin(t_angle) * corner_dist))
+
+        t_angle = math.radians((orientation + 180 - corner_angle) % 360)
+        corners.append((adjusted_x + math.cos(t_angle) * corner_dist, \
+                adjusted_y + math.sin(t_angle) * corner_dist))
+
+        t_angle = math.radians((orientation + 180 + corner_angle) % 360)
+        corners.append((adjusted_x + math.cos(t_angle) * corner_dist, \
+                adjusted_y + math.sin(t_angle) * corner_dist))
+
+        t_angle = math.radians((orientation - corner_angle) % 360)
+        corners.append((adjusted_x + math.cos(t_angle) * corner_dist, \
+                adjusted_y + math.sin(t_angle) * corner_dist))
+
+        return corners
+
+    def euclidian_distance(self, x, y):
+        """Euclidean distance"""
+        return math.sqrt(x**2 + y**2)
+
+    def get_angle(self, x, y):
+        """Get angle based on the unit circle"""
+        if x == 0:
+            if y > 0:
+                return 90
+            else:
+                return 270
+        elif x < 0:
+            return math.degrees(math.atan(y / x)) + 180
+
+        return math.degrees(math.atan(y / x))
+
+    def observed(self, position, orientation, target_position, fov=180, looking_distance=50):
+        """Check if a single vehicle/pedestrian can see another vehicle/pedestrian (no obscuration check here)"""
+        delta_x = target_position[0] - position[0]
+        delta_y = target_position[1] - position[1]
+
+        # edge case where both objects are at the same position
+        if delta_x == 0 and delta_y == 0:
+            return True
+
+        # object is too far
+        if self.euclidian_distance(delta_x, delta_y) > looking_distance:
+            return False
+
+        angle = self.get_angle(delta_x, delta_y)
+        right_angle = (orientation - angle) % 360
+        left_angle = (angle - orientation) % 360
+
+        # object is not in FOV
+        if left_angle > fov/2.0 and right_angle > fov/2.0:
+            return False
+        
+        return True
+
+    def check_blocked(self, position, target_position, blocked, vehicle_id):
+        """Check if a target vehicle is blocked by another vehicle or object."""
+        for b in list(blocked):
+            if b == vehicle_id:
+                continue
+            line_of_sight = (position, target_position)
+            if self.lines_intersect(line_of_sight, blocked[b]):
+                return True
+        return False
+
+    def lines_intersect(self, line1, line2):
+        """Check if two lines intersect."""
+        def ccw(A, B, C):
+                return (C[1]-A[1]) * (B[0]-A[0]) > (B[1]-A[1])*(C[0]-A[0])
+
+        a, b, c, d = line1[0], line1[1], line2[0], line2[1]
+        return ccw(a, c, d) != ccw(b, c, d) and ccw(a, b, c) != ccw(a, b, d)
