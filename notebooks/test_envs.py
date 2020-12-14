@@ -63,7 +63,6 @@ def MPC(environment, num_steps_per_simulation):
         env_clone = copy.deepcopy(environment)
         # reset L1 priors since L2 can't know them
         env_clone.reset_priors()
-
         # remove vehicles that can't be seen initially so we don't simulate them
         visible_vehs = env_clone.road.close_vehicles_to(env_clone.vehicle, obscuration=True)
         for v in env_clone.road.vehicles:
@@ -109,20 +108,21 @@ def run(scenario=1, inference_noise_std=0.0):
 
     # pick custom scenario
     env.config["scenario"] = scenario
-
     # to avoid constant inflow
     env.config["spawn_probability"] = 0
-
     # inference noise (std of normal noise added to inferred accelerations)
     env.config["inference_noise_std"] = inference_noise_std
-
     # default behavior for cars is IDM
     env.config["other_vehicles_type"] = 'highway_env.vehicle.behavior.IDMVehicle'
-
+    # observation type
+    env.config["type"] = 'IntersectionWithPedObservation'
+    # observation type
+    env.config["observation"]["type"] = 'IntersectionWithPedObservation'
+    
     # number of simulation steps
     n_steps = 30
-
     env.reset()
+
     for i in range(n_steps):
         if scenario in [2, 10]:
             # scenarios with L2 controller
@@ -134,7 +134,7 @@ def run(scenario=1, inference_noise_std=0.0):
                 elif i == 3: action = [1]
                 else: action = [1]
             else:
-                action = [MPC(env, num_steps_per_simulation=5)]
+                action = [MPC(env, num_steps_per_simulation=3)]
         else:
             # scenarios without L2 (actions are not computed here)
             action = [0]
@@ -215,6 +215,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     scenario = args.scenario
+    # import ipdb; ipdb.set_trace()
     run(scenario, inference_noise_std=0)
 
     # noise vs number of crashes plot

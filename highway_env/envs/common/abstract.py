@@ -203,7 +203,7 @@ class AbstractEnv(gym.Env):
             info["cost"] = self._cost(action)
         except NotImplementedError:
             pass
-
+        
         return obs, reward, terminal, info
 
     def _simulate(self, action: Optional[Action] = None) -> None:

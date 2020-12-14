@@ -55,7 +55,30 @@ class L0Vehicle(IDMVehicle):
         self.ped_states_names = ["ped_1", "ped_2", "ped_3", "ped_4"]
         self.non_ego_states_names = ["x", "y", "vx", "vy", "heading", "arrival_order"]
         self.max_other_vehs = 3
+
+        self.state = dict()
         
+    def to_dict(self, origin_vehicle: "Vehicle" = None, observe_intentions: bool = True) -> dict:
+        d = {
+            'presence': 1,
+            'x': self.position[0],
+            'y': self.position[1],
+            'vx': self.velocity[0],
+            'vy': self.velocity[1],
+            'heading' : self.heading,
+            'cos_h': self.direction[0],
+            'sin_h': self.direction[1],
+            'cos_d': self.destination_direction[0],
+            'sin_d': self.destination_direction[1]
+        }
+        if not observe_intentions:
+            d["cos_d"] = d["sin_d"] = 0
+        if origin_vehicle:
+            origin_dict = origin_vehicle.to_dict()
+            for key in ['x', 'y', 'vx', 'vy']:
+                d[key] -= origin_dict[key]
+        return d
+
     def arrived_at_intersection(self, v):
         """Arrived at intersection means vehicle v is 2m or less away from intersection"""
         threshold_arrival = 2 # threshold to be detected as arriving to intersection
@@ -158,19 +181,44 @@ class L0Vehicle(IDMVehicle):
 
     def get_state(self):
         """Return state vector for current vehicle"""
-        peds = list(map(lambda x: int(x), peds))
-        ego_states = [self.position[0], self.position[1], self.heading, self.speed, self.arrival_order.get(self, -1)]
-        
-        non_ego_states = []
-        # compute arrival orders
-        for v in self.road.vehicles:
-            if not (v == self or (isinstance(v, Pedestrian) or isinstance(v, FullStop))):
-                v_state = [v.position[0], v.position[1], v.heading, v.speed, v.arrival_order.get(v, -1)]
-                non_ego_states += v_state
+        ped_states = {}
+        non_ego_states = {}
+        ego_states = {}
 
-        self.state = ego_states + peds + non_ego_states
-        extra_states = len(self.ego_states_names) + len(self.ped_states_names) + self.max_other_vehs * len(self.non_ego_states_names) - len(self.state)
-        self.state += [0] * extra_states
+
+        # fill ego states
+        ego_states = {'x': self.position[0], 'y': self.position[1], 'heading': self.heading, 
+                      'vx': self.velocity[0], 'vy': self.velocity[1], 'arrival_order': self.arrival_order.get(self, -1)}
+        
+        # fill ped states
+        ped_state_lst = self.get_ped_state()
+        for i, ped_val in enumerate(ped_state_lst):
+            ped_states[f'ped_{i}'] = int(ped_val)
+
+        # zero-fill non ego states
+        for idx in range(self.max_other_vehs):
+            non_ego_states[str(idx) + '_' + 'x'] = 0
+            non_ego_states[str(idx) + '_' + 'y'] = 0
+            non_ego_states[str(idx) + '_' + 'vx'] = 0
+            non_ego_states[str(idx) + '_' + 'vy'] = 0
+            non_ego_states[str(idx) + '_' + 'heading'] = 0
+            non_ego_states[str(idx) + '_' + 'arrival_order'] = -1 
+
+        # fill non ego states
+        for idx, v in enumerate(self.road.vehicles):
+            if not (v == self or (isinstance(v, Pedestrian) or isinstance(v, FullStop))):
+                non_ego_states[str(idx) + '_' + 'x'] = v.position[0]
+                non_ego_states[str(idx) + '_' + 'y'] = v.position[1]
+                non_ego_states[str(idx) + '_' + 'vx'] = v.velocity[0]
+                non_ego_states[str(idx) + '_' + 'vy'] = v.velocity[1]
+                non_ego_states[str(idx) + '_' + 'heading'] = v.heading
+                non_ego_states[str(idx) + '_' + 'arrival_order'] = v.arrival_order.get(v, -1) 
+
+        self.state.update(ego_states)
+        self.state.update(ped_states)
+        self.state.update(non_ego_states)
+
+        return self.state
 
 class L1Vehicle(L0Vehicle):
     """Rule based vehicle (L0) operating on an inferred belief state"""

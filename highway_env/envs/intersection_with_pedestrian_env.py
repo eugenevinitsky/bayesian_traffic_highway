@@ -28,13 +28,13 @@ class PedestrianIntersectionEnv(IntersectionEnv):
             "observation": {
                 "type": "Kinematics",
                 "vehicles_count": 5,
-                "features": ["presence", "x", "y", "vx", "vy", "cos_h", "sin_h"],
-                "features_range": {
-                    "x": [-100, 100],
-                    "y": [-100, 100],
-                    "vx": [-20, 20],
-                    "vy": [-20, 20],
-                },
+                # "features": ["presence", "x", "y", "vx", "vy", "cos_h", "sin_h"],
+                # "features_range": {
+                #     "x": [-100, 100],
+                #     "y": [-100, 100],
+                #     "vx": [-20, 20],
+                #     "vy": [-20, 20],
+                # },
                 "absolute": True,
                 "flatten": False,
                 "observe_intentions": False
@@ -173,7 +173,7 @@ class PedestrianIntersectionEnv(IntersectionEnv):
 
     def _reset(self) -> None:
         super()._reset()
-        self.set_observer_vehicle('L0Vehcile')
+        self.set_observer_vehicle('L0Vehicle')
 
     def set_observer_vehicle(self, veh_type):
         """Set observer vehicle to any vehicle of type veh_type
@@ -271,8 +271,8 @@ class PedestrianIntersectionEnv(IntersectionEnv):
             if self.config["scenario"] == 0: # debug
                 raise ValueError
             elif self.config["scenario"] == 1:
-                spawn_vehicle(vclass=L1Vehicle, lane=("o3", "ir3", 0), dest="o1", pos=75, speed=8.0, type="car", controlled=True)
-                spawn_vehicle(vclass=L0Vehicle, lane=("o1", "ir1", 0), dest="o3", pos=70, speed=8.0, type="car")
+                spawn_vehicle(vclass=L0Vehicle, lane=("o1", "ir1", 0), dest="o3", pos=70, speed=8.0, type="car", controlled=True)
+                spawn_vehicle(vclass=L1Vehicle, lane=("o3", "ir3", 0), dest="o1", pos=75, speed=8.0, type="car")
                 spawn_vehicle(vclass=Pedestrian, lane=("p2", "p2_end", 0), dest="p2_end", pos=1, speed=2.0, type="ped")
                 spawn_vehicle(vclass=FullStop, lane=("o2", "ir2", 0), dest="o1", pos=97, speed=0.0, type="bus")
                 # spawn_vehicle(vclass=FullStop, lane=("ir2", "il1", 0), dest="o1", pos=2, speed=2.0, heading=3.1415/16*12, type="bus")
