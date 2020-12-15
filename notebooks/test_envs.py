@@ -120,9 +120,9 @@ def run(scenario=1, inference_noise_std=0.0):
     # observation type
     env.config["observation"]["type"] = 'IntersectionWithPedObservation'
     
-    # number of simulation steps
-    n_steps = 30
     env.reset()
+    # number of simulation steps
+    n_steps = 100
 
     for i in range(n_steps):
         if scenario in [2, 10]:
@@ -139,9 +139,10 @@ def run(scenario=1, inference_noise_std=0.0):
         else:
             # scenarios without L2 (actions are not computed here)
             action = [0]
-        obs, reward, done, info = env.step(action)
 
+        obs, reward, done, info = env.step(action)
         reward = compute_reward(env)
+
         if reward < 0:
             print('CRASH')
             return False

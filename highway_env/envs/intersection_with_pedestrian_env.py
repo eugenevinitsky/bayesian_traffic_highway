@@ -45,9 +45,9 @@ class PedestrianIntersectionEnv(IntersectionEnv):
                 "acceleration_range": [-1, 1],  # only matters for L2
                 "lateral": False # ah, here's where we turn things off
             },
-            "scenario": None,
+            "scenario": 1,
             "inference_noise_std": 0.0,
-            "duration": 13,  # [s]
+            "duration": 40,  # [s]
             "destination": "o1",
             "controlled_vehicles": 1,
             "initial_vehicle_count": 10,
@@ -204,7 +204,7 @@ class PedestrianIntersectionEnv(IntersectionEnv):
 
         self.controlled_vehicles = []
 
-        def spawn_vehicle(lane, dest, pos, speed, heading=None, type="car", vclass=L0Vehicle, controlled=False):
+        def spawn_vehicle(lane, dest, pos, speed, heading=None, type="car", vclass=L0Vehicle, controlled=False, imitation_policy_path=None):
             params = {
                 ## we adapt the dynamics depending on what scenario is used
                 'scenario': self.config["scenario"],
@@ -226,8 +226,10 @@ class PedestrianIntersectionEnv(IntersectionEnv):
                 'ped_delete_condition': (lambda ped: ped.position[1] > 7) if self.config["scenario"] in [1] \
                     else (lambda ped: ped.position[0] < -3) if self.config["scenario"] in [9] \
                     else (lambda ped: ped.position[0] < 0) if self.config["scenario"] in [10] \
-                    else lambda ped: False
+                    else lambda ped: False, 
+                'imitation_policy_path': imitation_policy_path
             }
+            
             vehicle = vclass.make_on_lane(self.road, lane, longitudinal=pos, speed=speed, params=params)
 
             if vclass == L0Vehicle:
@@ -334,7 +336,6 @@ class PedestrianIntersectionEnv(IntersectionEnv):
                        is_ped: bool = False) -> None:
         if self.np_random.rand() > spawn_probability:
             return
-
         route = self.np_random.choice(range(4), size=2, replace=False)
         route[1] = (route[0] + 2) % 4 if go_straight else route[1]
         vehicle_type = utils.class_from_path(self.config["other_vehicles_type"])

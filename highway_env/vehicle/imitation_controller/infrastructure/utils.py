@@ -5,7 +5,6 @@ import time
 ############################################
 
 def sample_trajectory(env, policy, max_path_length, render=False, render_mode=('rgb_array')):
-
     # initialize env for the beginning of a new rollout
     ob = env.reset() # HINT: should be the output of resetting the env
 
@@ -13,6 +12,8 @@ def sample_trajectory(env, policy, max_path_length, render=False, render_mode=('
     obs, acs, rewards, next_obs, terminals, image_obs = [], [], [], [], [], []
     steps = 0
     while True:
+        if render:
+            env.render()
         # render image of the simulated env
         if render:
             if 'rgb_array' in render_mode:
@@ -26,10 +27,12 @@ def sample_trajectory(env, policy, max_path_length, render=False, render_mode=('
 
         # use the most recent ob to decide what to do
         obs.append(ob)
-        ac = policy.get_action(ob) # HINT: query the policy's get_action function
-        ac = ac[0]
-        acs.append(ac)
+        # ac = policy.get_action(ob) # HINT: query the policy's get_action function
+        # ac = ac[0]
+        veh = env.vehicle
+        ac = np.array([np.array([veh.acceleration(veh)])])
 
+        acs.append(ac)
         # take that action and record results
         ob, rew, done, _ = env.step(ac)
 
@@ -42,7 +45,7 @@ def sample_trajectory(env, policy, max_path_length, render=False, render_mode=('
         # HINT: rollout can end due to done, or due to max_path_length
         rollout_done = 1 if done or steps >= max_path_length else 0 # HINT: this is either 0 or 1
         terminals.append(rollout_done)
-
+        break
         if rollout_done:
             break
 
@@ -55,6 +58,9 @@ def sample_trajectories(env, policy, min_timesteps_per_batch, max_path_length, r
     timesteps_this_batch = 0
     paths = []
     while timesteps_this_batch < min_timesteps_per_batch:
+        print("++++++++is_batch")
+
+        print(timesteps_this_batch)
         # import ipdb;ipdb.set_trace()
         path = sample_trajectory(env, policy, max_path_length, render, render_mode)
         timesteps_this_batch += get_pathlength(path)

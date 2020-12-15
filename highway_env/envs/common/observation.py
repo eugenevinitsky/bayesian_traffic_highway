@@ -421,13 +421,11 @@ class IntersectionWithPedObservation(ObservationType):
         self.clip = clip
         self.see_behind = see_behind
         self.observe_intentions = observe_intentions
-        self.state = self.ego_features + self.ped_features
-        for i in range(self.max_vehicles):
-            self.state.extend(self.non_ego_features)
+        self.state = self.ego_features + self.ped_features + self.non_ego_features
 
 
     def space(self) -> spaces.Space:
-        return spaces.Box(shape=(len(self.ego_features) + len(self.ped_features) + self.max_vehicles * len(self.non_ego_features), 1), low=-1, high=1, dtype=np.float32)
+        return spaces.Box(shape=(len(self.state), 1), low=-1, high=1, dtype=np.float32)
 
     def normalize_obs(self, df: pd.DataFrame) -> pd.DataFrame:
         """
@@ -463,7 +461,6 @@ class IntersectionWithPedObservation(ObservationType):
         return df
 
     def observe(self) -> np.ndarray:
-        import ipdb; ipdb.set_trace()
         if not self.env.road:
             return np.zeros(self.space().shape)
 

@@ -48,6 +48,7 @@ class L0Vehicle(IDMVehicle):
         # position of center points of the 4 crossings
         self.crossings_positions = self.params['crossing_positions']
         self.accel = 0
+        self.imitation_policy = self.params['imitation_policy_path']
         # arrival order from our P.O.V
         self.arrival_order = dict()
         # state names
@@ -60,24 +61,6 @@ class L0Vehicle(IDMVehicle):
         
     def to_dict(self, origin_vehicle: "Vehicle" = None, observe_intentions: bool = True) -> dict:
         self.state = self.get_state()
-        # d = {
-        #     'presence': 1,
-        #     'x': self.position[0],
-        #     'y': self.position[1],
-        #     'vx': self.velocity[0],
-        #     'vy': self.velocity[1],
-        #     'heading' : self.heading,
-        #     'cos_h': self.direction[0],
-        #     'sin_h': self.direction[1],
-        #     'cos_d': self.destination_direction[0],
-        #     'sin_d': self.destination_direction[1]
-        # }
-        # if not observe_intentions:
-        #     d["cos_d"] = d["sin_d"] = 0
-        # if origin_vehicle:
-        #     origin_dict = origin_vehicle.to_dict()
-        #     for key in ['x', 'y', 'vx', 'vy']:
-        #         d[key] -= origin_dict[key]
         return self.state
 
     def arrived_at_intersection(self, v):
@@ -112,8 +95,9 @@ class L0Vehicle(IDMVehicle):
         # compute default IDM acceleration (pedestrians are not accounted for as obstacles)
         if isinstance(front_vehicle, Pedestrian): front_vehicle = None
         if isinstance(rear_vehicle, Pedestrian): rear_vehicle = None
+        if self.imitation_policy:
+            return 
         accel = super().acceleration(ego_vehicle, front_vehicle, rear_vehicle)
-
         # compute arrival orders
         for v in self.road.vehicles:
             if not (isinstance(v, Pedestrian) or isinstance(v, FullStop)):
@@ -144,7 +128,8 @@ class L0Vehicle(IDMVehicle):
                             accel = ACC_MIN / 2
 
         accel = np.clip(accel, ACC_MIN, ACC_MAX)
-
+        if 'L0' in str(self):
+            print(self, 'accel is', accel)
         if not infer:
             self.accel = accel
 

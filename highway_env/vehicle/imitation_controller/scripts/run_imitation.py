@@ -23,6 +23,16 @@ class BC_Trainer(object):
 
         self.rl_trainer = RL_Trainer(self.params)
 
+    def run_training_loop(self):
+
+        self.rl_trainer.run_training_loop(
+            n_iter=self.params['n_iter'],
+            initial_expertdata=None,
+            collect_policy=self.rl_trainer.agent.actor,
+            eval_policy=self.rl_trainer.agent.actor,
+            relabel_with_expert=self.params['do_dagger'],
+            expert_policy=self.loaded_expert_policy,
+        )
 
 if __name__ == '__main__':
     import argparse
@@ -55,9 +65,10 @@ if __name__ == '__main__':
     parser.add_argument('--save_params', action='store_true')
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--tune_hyperparam', type=bool, default=False)
-    args = parser.parse_args()
 
+    args = parser.parse_args()
     # convert args to dictionary
     params = vars(args)
     
     trainer = BC_Trainer(params)
+    trainer.run_training_loop()
