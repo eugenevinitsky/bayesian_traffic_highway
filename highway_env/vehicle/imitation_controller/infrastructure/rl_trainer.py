@@ -6,9 +6,9 @@ import pickle
 import gym
 import torch
 
-from cs285.infrastructure import pytorch_util as ptu
-from cs285.infrastructure.logger import Logger
-from cs285.infrastructure import utils
+from highway_env.vehicle.imitation_controller.infrastructure import pytorch_util as ptu
+from highway_env.vehicle.imitation_controller.infrastructure.logger import Logger
+from highway_env.vehicle.imitation_controller.infrastructure import utils
 
 # how many rollouts to save as videos to tensorboard
 MAX_NVIDEO = 2
@@ -38,7 +38,7 @@ class RL_Trainer(object):
         #############
         ## ENV
         #############
-
+        import ipdb; ipdb.set_trace()
         # Make the gym environment
         self.env = gym.make(self.params['env_name'])
         self.env.seed(seed)

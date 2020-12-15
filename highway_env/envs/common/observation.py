@@ -374,6 +374,7 @@ class MultiAgentObservation(ObservationType):
     def observe(self) -> tuple:
         return tuple(obs_type.observe() for obs_type in self.agents_observation_types)
 
+FEATURES: List[str] = ['presence', 'x', 'y', 'vx', 'vy']
 EGO_FEATURES: List[str] = ["x", "y", "vx", "vy", "heading", "arrival_order"]
 PED_FEATURES: List[str] = ["ped_0", "ped_1", "ped_2", "ped_3"]
 NON_EGO_FEATURES: List[str] = ["0_x", "0_y", "0_vx", "0_vy", "0_heading", "0_arrival_order",
@@ -407,7 +408,7 @@ class IntersectionWithPedObservation(ObservationType):
         :param observe_intentions: Observe the destinations of other vehicles
         """
         super().__init__(env)
-        self.features = features
+        self.features = features or FEATURES
         self.ego_features = EGO_FEATURES
         self.ped_features = PED_FEATURES
         self.non_ego_features = NON_EGO_FEATURES
@@ -462,10 +463,15 @@ class IntersectionWithPedObservation(ObservationType):
         return df
 
     def observe(self) -> np.ndarray:
+        import ipdb; ipdb.set_trace()
         if not self.env.road:
             return np.zeros(self.space().shape)
-        # Add ego-vehicle
-        df = pd.DataFrame.from_records([self.observer_vehicle.get_state()])
+
+        if '1_arrival_order' not in self.observer_vehicle.to_dict().keys():
+            df = pd.DataFrame.from_records([self.observer_vehicle.to_dict()])[self.features]
+        else:
+            # Add ego-vehicle
+            df = pd.DataFrame.from_records([self.observer_vehicle.to_dict()])[self.state]
         # Add nearby traffic
         # sort = self.order == "sorted"
         close_vehicles = self.env.road.close_vehicles_to(self.observer_vehicle,
@@ -487,7 +493,11 @@ class IntersectionWithPedObservation(ObservationType):
         #     df = df.append(pd.DataFrame(data=rows, columns=self.state), ignore_index=True)
 
         # Reorder
-        df = df[self.state]
+        if '1_arrival_order' not in self.observer_vehicle.to_dict().keys():
+            df = df[self.features]
+        else:
+            df = df[self.state]
+
         obs = df.values.copy()
         if self.order == "shuffled":
             self.env.np_random.shuffle(obs[1:])

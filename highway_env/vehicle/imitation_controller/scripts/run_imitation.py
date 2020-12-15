@@ -2,9 +2,9 @@ import os
 import time
 import pickle
 
-from cs285.infrastructure.rl_trainer import RL_Trainer
-from cs285.agents.bc_agent import BCAgent
-from cs285.policies.loaded_gaussian_policy import LoadedGaussianPolicy
+from highway_env.vehicle.imitation_controller.infrastructure.rl_trainer import RL_Trainer
+from highway_env.vehicle.imitation_controller.agents.bc_agent import BCAgent
+from highway_env.vehicle.imitation_controller.policies.loaded_gaussian_policy import LoadedGaussianPolicy
 
 class BC_Trainer(object):
 
@@ -27,8 +27,8 @@ class BC_Trainer(object):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--expert_policy_file', '-epf', type=str, required=True)  # relative to where you're running this script from
-    parser.add_argument('--expert_data', '-ed', type=str, required=True) #relative to where you're running this script from
+    parser.add_argument('--expert_policy_file', '-epf', type=str, required=False)  # relative to where you're running this script from
+    parser.add_argument('--expert_data', '-ed', type=str, required=False) #relative to where you're running this script from
     parser.add_argument('--env_name', '-env', type=str, help='choices: Ant-v2, Humanoid-v2, Walker-v2, HalfCheetah-v2, Hopper-v2', required=True)
     parser.add_argument('--exp_name', '-exp', type=str, default='pick an experiment name', required=True)
     parser.add_argument('--do_dagger', action='store_true')
@@ -60,4 +60,4 @@ if __name__ == '__main__':
     # convert args to dictionary
     params = vars(args)
     
-    trainer = BC_Trainer()
+    trainer = BC_Trainer(params)

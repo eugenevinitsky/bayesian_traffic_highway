@@ -9,8 +9,8 @@ import numpy as np
 import torch
 from torch import distributions
 
-from cs285.infrastructure import pytorch_util as ptu
-from cs285.policies.base_policy import BasePolicy
+from highway_env.vehicle.imitation_controller.infrastructure import pytorch_util as ptu
+from highway_env.vehicle.imitation_controller.policies.base_policy import BasePolicy
 
 
 class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):

@@ -26,7 +26,7 @@ class PedestrianIntersectionEnv(IntersectionEnv):
         config = super().default_config()
         config.update({
             "observation": {
-                "type": "Kinematics",
+                "type": "IntersectionWithPedObservation",
                 "vehicles_count": 5,
                 # "features": ["presence", "x", "y", "vx", "vy", "cos_h", "sin_h"],
                 # "features_range": {

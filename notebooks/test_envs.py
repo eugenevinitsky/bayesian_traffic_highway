@@ -6,6 +6,7 @@ import copy
 import random
 from multiprocessing import Pool
 
+from highway_env.vehicle.imitation_controller import test
 from highway_env.vehicle.l012vehicles import L0Vehicle, L1Vehicle, L2Vehicle, Pedestrian, FullStop
 
 # matplotlib config
@@ -105,7 +106,7 @@ def MPC(environment, num_steps_per_simulation):
 
 def run(scenario=1, inference_noise_std=0.0):
     env = gym.make('intersection-pedestrian-v0')
-
+    # TODO kl wtf is obs space 5, 5 and not 24, 1????
     # pick custom scenario
     env.config["scenario"] = scenario
     # to avoid constant inflow
@@ -215,6 +216,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     scenario = args.scenario
+
     # import ipdb; ipdb.set_trace()
     run(scenario, inference_noise_std=0)
 

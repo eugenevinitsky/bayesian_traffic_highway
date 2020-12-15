@@ -59,25 +59,26 @@ class L0Vehicle(IDMVehicle):
         self.state = dict()
         
     def to_dict(self, origin_vehicle: "Vehicle" = None, observe_intentions: bool = True) -> dict:
-        d = {
-            'presence': 1,
-            'x': self.position[0],
-            'y': self.position[1],
-            'vx': self.velocity[0],
-            'vy': self.velocity[1],
-            'heading' : self.heading,
-            'cos_h': self.direction[0],
-            'sin_h': self.direction[1],
-            'cos_d': self.destination_direction[0],
-            'sin_d': self.destination_direction[1]
-        }
-        if not observe_intentions:
-            d["cos_d"] = d["sin_d"] = 0
-        if origin_vehicle:
-            origin_dict = origin_vehicle.to_dict()
-            for key in ['x', 'y', 'vx', 'vy']:
-                d[key] -= origin_dict[key]
-        return d
+        self.state = self.get_state()
+        # d = {
+        #     'presence': 1,
+        #     'x': self.position[0],
+        #     'y': self.position[1],
+        #     'vx': self.velocity[0],
+        #     'vy': self.velocity[1],
+        #     'heading' : self.heading,
+        #     'cos_h': self.direction[0],
+        #     'sin_h': self.direction[1],
+        #     'cos_d': self.destination_direction[0],
+        #     'sin_d': self.destination_direction[1]
+        # }
+        # if not observe_intentions:
+        #     d["cos_d"] = d["sin_d"] = 0
+        # if origin_vehicle:
+        #     origin_dict = origin_vehicle.to_dict()
+        #     for key in ['x', 'y', 'vx', 'vy']:
+        #         d[key] -= origin_dict[key]
+        return self.state
 
     def arrived_at_intersection(self, v):
         """Arrived at intersection means vehicle v is 2m or less away from intersection"""
@@ -147,19 +148,19 @@ class L0Vehicle(IDMVehicle):
         if not infer:
             self.accel = accel
 
-        peds = list(map(lambda x: int(x), peds))
-        ego_states = [self.position[0], self.position[1], self.heading, self.speed, self.arrival_order.get(self, -1)]
+        # peds = list(map(lambda x: int(x), peds))
+        # ego_states = [self.position[0], self.position[1], self.heading, self.speed, self.arrival_order.get(self, -1)]
         
-        non_ego_states = []
-        # compute arrival orders
-        for v in self.road.vehicles:
-            if not (v == self or (isinstance(v, Pedestrian) or isinstance(v, FullStop))):
-                v_state = [v.position[0], v.position[1], v.heading, v.speed, v.arrival_order.get(v, -1)]
-                non_ego_states += v_state
+        # non_ego_states = []
+        # # compute arrival orders
+        # for v in self.road.vehicles:
+        #     if not (v == self or (isinstance(v, Pedestrian) or isinstance(v, FullStop))):
+        #         v_state = [v.position[0], v.position[1], v.heading, v.speed, v.arrival_order.get(v, -1)]
+        #         non_ego_states += v_state
 
-        self.state = ego_states + peds + non_ego_states
-        extra_states = len(self.ego_states_names) + len(self.ped_states_names) + self.max_other_vehs * len(self.non_ego_states_names) - len(self.state)
-        self.state += [0] * extra_states
+        # self.state = ego_states + peds + non_ego_states
+        # extra_states = len(self.ego_states_names) + len(self.ped_states_names) + self.max_other_vehs * len(self.non_ego_states_names) - len(self.state)
+        self.state = self.get_state(peds)
 
         return accel
 
@@ -179,7 +180,7 @@ class L0Vehicle(IDMVehicle):
                             peds[idx] = True
         return peds
 
-    def get_state(self):
+    def get_state(self, peds=None):
         """Return state vector for current vehicle"""
         ped_states = {}
         non_ego_states = {}
@@ -191,7 +192,7 @@ class L0Vehicle(IDMVehicle):
                       'vx': self.velocity[0], 'vy': self.velocity[1], 'arrival_order': self.arrival_order.get(self, -1)}
         
         # fill ped states
-        ped_state_lst = self.get_ped_state()
+        ped_state_lst = self.get_ped_state(peds)
         for i, ped_val in enumerate(ped_state_lst):
             ped_states[f'ped_{i}'] = int(ped_val)
 

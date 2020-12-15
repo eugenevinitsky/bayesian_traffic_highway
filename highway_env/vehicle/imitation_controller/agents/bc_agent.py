@@ -1,5 +1,5 @@
-from cs285.infrastructure.replay_buffer import ReplayBuffer
-from cs285.policies.MLP_policy import MLPPolicySL
+from highway_env.vehicle.imitation_controller.infrastructure.replay_buffer import ReplayBuffer
+from highway_env.vehicle.imitation_controller.policies.MLP_policy import MLPPolicySL
 from .base_agent import BaseAgent
 
 
