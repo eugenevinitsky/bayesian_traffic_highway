@@ -70,6 +70,7 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
     ##################################
 
     def save(self, filepath):
+        import ipdb; ipdb.set_trace()
         torch.save(self.state_dict(), filepath)
 
     ##################################
@@ -101,6 +102,7 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
     # return more flexible objects, such as a
     # `torch.distributions.Distribution` object. It's up to you!
     def forward(self, observation: torch.FloatTensor) -> Any:
+        print('observation size is ', observation.shape)
         net = self.logits_na if self.discrete else self.mean_net 
         obj = torch.FloatTensor(net.foward(observation), requires_grad=True)
         return obj

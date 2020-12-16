@@ -230,6 +230,17 @@ class IDMVehicle(ControlledVehicle):
             if self.mobil(lane_index):
                 self.target_lane_index = lane_index
 
+    def precompute(self):
+        # get which crossings the car will cross along its route
+        ids_crossed = []
+        times = np.arange(0, 20, 0.2)
+        for pred_pos in self.predict_trajectory_constant_speed(times, use_lane_speed=True)[0]:
+            for crossing_id in range(4):
+                cpos = self.crossings_positions[crossing_id]
+                if np.abs(cpos[0] - pred_pos[0]) + np.abs(cpos[1] - pred_pos[1]) < self.params['crossing_distance_detection']:
+                    ids_crossed.append(crossing_id)
+        self.ids_crossed = set(ids_crossed)
+        
     def mobil(self, lane_index: LaneIndex) -> bool:
         """
         MOBIL lane change model: Minimizing Overall Braking Induced by a Lane change

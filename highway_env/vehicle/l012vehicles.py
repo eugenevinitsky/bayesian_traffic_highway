@@ -1,6 +1,10 @@
 from typing import Tuple, Union
 import numpy as np
 from collections import defaultdict
+import torch
+from gym import spaces
+import numpy as np
+import pandas as pd
 
 from highway_env.road.road import Road, Route, LaneIndex
 from highway_env.types import Vector
@@ -12,7 +16,12 @@ from highway_env.road.objects import RoadObject
 from highway_env.road.lane import StraightLane
 from highway_env.bayesian_inference.inference import get_filtered_posteriors
 from highway_env import utils
-
+from highway_env.vehicle.imitation_controller.policies.MLP_policy import MLPPolicySL
+from highway_env.vehicle.imitation_controller.infrastructure import pytorch_util as ptu
+from highway_env.envs.common.observation import IntersectionWithPedObservation  
+from highway_env.envs.common.finite_mdp import compute_ttc_grid
+from highway_env.road.lane import AbstractLane
+from highway_env.vehicle.controller import MDPVehicle
 
 # minimal and maximal acceleration for all vehicles
 ACC_MIN = -4
@@ -30,6 +39,9 @@ class Pedestrian(IDMVehicle):
         if self.params['ped_delete_condition'](self):
             self.road.vehicles.remove(self)
 
+NON_EGO_FEATURES = ["0_x", "0_y", "0_vx", "0_vy", "0_heading", "0_arrival_order",
+                        "1_x", "1_y", "1_vx", "1_vy", "1_heading", "1_arrival_order", 
+                        "2_x", "2_y", "2_vx", "2_vy", "2_heading", "2_arrival_order"]
 class L0Vehicle(IDMVehicle):
     """Rule-based vehicle that obeys normal traffic rules
     
@@ -41,6 +53,8 @@ class L0Vehicle(IDMVehicle):
 
     Assumption, everyone drives straight
     """
+
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # L0 can see through obstacles
@@ -48,17 +62,65 @@ class L0Vehicle(IDMVehicle):
         # position of center points of the 4 crossings
         self.crossings_positions = self.params['crossing_positions']
         self.accel = 0
-        self.imitation_policy = self.params['imitation_policy_path']
+        self.imitation_policy_path = self.params['imitation_policy_path']
+        # import ipdb; ipdb.set_trace()
+        if self.imitation_policy_path:
+            self.imitation_policy = MLPPolicySL(1,
+                                        28,
+                                        2,
+                                        64,
+                                        discrete=False,
+                                        learning_rate=5e-3)
+            self.imitation_policy.load_state_dict(torch.load('/home/thankyou-always/TODO/research/bayesian_traffic_highway/highway_env/vehicle/data/q1_1_intersection-pedestrian-v0_15-12-2020_23-47-18/policy_itr_0.pt'))   
+            self.imitation_policy = self.imitation_policy.mean_net
+            obs = torch.zeros(1, 1, 28) # .to(torch.device("cuda"))
+            self.imitation_policy(obs)                                        
+            print('Done restoring learned policy...')
         # arrival order from our P.O.V
         self.arrival_order = dict()
         # state names
         self.ego_states_names = ["x", "y", "vx", "vy", "heading", "arrival_order"]
-        self.ped_states_names = ["ped_1", "ped_2", "ped_3", "ped_4"]
+        self.ped_states_names = ["ped_0", "ped_1", "ped_2", "ped_3"]
         self.non_ego_states_names = ["x", "y", "vx", "vy", "heading", "arrival_order"]
         self.max_other_vehs = 3
-
+        self.state_names = self.ego_states_names + self.ped_states_names + NON_EGO_FEATURES
+        self.features_range = None
+        self.clip = True
         self.state = dict()
-        
+
+    def normalize_obs(self, df):
+        """
+        Normalize the observation values.
+
+        For now, assume that the road is straight along the x axis.
+        :param Dataframe df: observation data
+        """
+        if not self.features_range:
+            side_lanes = self.road.network.all_side_lanes(self.lane_index)
+            self.features_range = {
+                    "x": [-5.0 * MDPVehicle.SPEED_MAX, 5.0 * MDPVehicle.SPEED_MAX],
+                    "y": [-AbstractLane.DEFAULT_WIDTH * len(side_lanes), AbstractLane.DEFAULT_WIDTH * len(side_lanes)],
+                    "vx": [-2*MDPVehicle.SPEED_MAX, 2*MDPVehicle.SPEED_MAX],
+                    "vy": [-2*MDPVehicle.SPEED_MAX, 2*MDPVehicle.SPEED_MAX],
+                    "heading": [-2*np.pi, 2*np.pi], # TODO check
+                    "arrival_order": [-1, 3] # necessary?
+                }
+            for i in range(self.max_other_vehs):
+                self.features_range.update({
+                    f"{i}_x": [-5.0 * MDPVehicle.SPEED_MAX, 5.0 * MDPVehicle.SPEED_MAX],
+                    f"{i}_y": [-AbstractLane.DEFAULT_WIDTH * len(side_lanes), AbstractLane.DEFAULT_WIDTH * len(side_lanes)],
+                    f"{i}_vx": [-2*MDPVehicle.SPEED_MAX, 2*MDPVehicle.SPEED_MAX],
+                    f"{i}_vy": [-2*MDPVehicle.SPEED_MAX, 2*MDPVehicle.SPEED_MAX],
+                    f"{i}_heading": [-2*np.pi, 2*np.pi], # TODO check
+                    f"{i}_arrival_order": [-1, 3] # necessary?
+                })
+        for feature, f_range in self.features_range.items():
+            if feature in df:
+                df[feature] = utils.lmap(df[feature], [f_range[0], f_range[1]], [-1, 1])
+                if self.clip:
+                    df[feature] = np.clip(df[feature], -1, 1)
+        return df
+
     def to_dict(self, origin_vehicle: "Vehicle" = None, observe_intentions: bool = True) -> dict:
         self.state = self.get_state()
         return self.state
@@ -95,8 +157,7 @@ class L0Vehicle(IDMVehicle):
         # compute default IDM acceleration (pedestrians are not accounted for as obstacles)
         if isinstance(front_vehicle, Pedestrian): front_vehicle = None
         if isinstance(rear_vehicle, Pedestrian): rear_vehicle = None
-        if self.imitation_policy:
-            return 
+
         accel = super().acceleration(ego_vehicle, front_vehicle, rear_vehicle)
         # compute arrival orders
         for v in self.road.vehicles:
@@ -146,7 +207,25 @@ class L0Vehicle(IDMVehicle):
         # self.state = ego_states + peds + non_ego_states
         # extra_states = len(self.ego_states_names) + len(self.ped_states_names) + self.max_other_vehs * len(self.non_ego_states_names) - len(self.state)
         self.state = self.get_state(peds)
+        if True:
 
+            if '1_arrival_order' not in self.state.keys():
+                print('failed')
+            else:
+                # Add ego-vehicle
+                df = pd.DataFrame.from_records([self.state])[self.state_names]
+            if True:
+                df = self.normalize_obs(df)
+
+            if '1_arrival_order' not in self.state.keys():
+                print('failed')
+            else:
+                df = df[self.state_names]
+
+            obs = df.values.copy()
+            obs = ptu.from_numpy(obs)
+            obs = obs.view(1, 1, 28)
+            return self.imitation_policy(obs)[0][0][0].detach().numpy()
         return accel
 
     def get_ped_state(self, peds=None):

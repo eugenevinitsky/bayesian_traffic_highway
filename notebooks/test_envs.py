@@ -210,10 +210,14 @@ def run(scenario=1, inference_noise_std=0.0):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument('--imitation_policy_path', '-ipp', type=str, default='/home/thankyou-always/TODO/research/bayesian_traffic_highway/highway_env/vehicle/data/q1_1_intersection-pedestrian-v0_15-12-2020_23-47-18/policy_itr_0.pt', required=False)  # relative to where you're running this script from
     parser.add_argument("--scenario",
                         help="specify experiment number - 0, 1, 2, 3, 9 or 10",
                         type=int,
                         default=1)
+    parser.add_argument('--n_layers', type=int, default=2)  # depth, of policy to be learned
+    parser.add_argument('--size', type=int, default=64)  # width of each layer, of policy to be learned
+    parser.add_argument('--learning_rate', '-lr', type=float, default=5e-3)  # LR for supervised learning
 
     args = parser.parse_args()
     scenario = args.scenario

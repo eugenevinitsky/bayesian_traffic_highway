@@ -130,7 +130,7 @@ class RL_Trainer(object):
 
             # add collected data to replay buffer
             self.agent.add_to_replay_buffer(paths)
-
+            import ipdb; ipdb.set_trace()
             # train agent (using sampled data from replay buffer)
             training_logs = self.train_agent()  # HW1: implement this function below
 

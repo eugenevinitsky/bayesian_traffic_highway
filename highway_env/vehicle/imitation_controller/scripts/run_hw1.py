@@ -1,10 +1,12 @@
 import os
 import time
 import pickle
+import torch
 
 from highway_env.vehicle.imitation_controller.infrastructure.rl_trainer import RL_Trainer
 from highway_env.vehicle.imitation_controller.agents.bc_agent import BCAgent
 from highway_env.vehicle.imitation_controller.policies.loaded_gaussian_policy import LoadedGaussianPolicy
+from highway_env.vehicle.imitation_controller.policies.MLP_policy import MLPPolicySL
 
 class BC_Trainer(object):
 
@@ -35,6 +37,19 @@ class BC_Trainer(object):
         ## LOAD EXPERT POLICY
         #######################
 
+        print('Loading policy from...', self.params['learned_policy_file'])
+        import ipdb; ipdb.set_trace()
+        self.loaded_expert_policy = MLPPolicySL(self.rl_trainer.agent.agent_params['ac_dim'],
+                                                self.rl_trainer.agent.agent_params['ob_dim'],
+                                                self.rl_trainer.agent.agent_params['n_layers'],
+                                                self.rl_trainer.agent.agent_params['size'],
+                                                discrete=self.rl_trainer.agent.agent_params['discrete'],
+                                                learning_rate=self.rl_trainer.agent.agent_params['learning_rate'])
+        self.loaded_expert_policy.load_state_dict(torch.load(self.params['learned_policy_file'])) 
+        obs = torch.zeros(1, 1, 28).to(torch.device("cuda"))
+        self.loaded_expert_policy.mean_net(obs)                                       
+        print('Done restoring learned policy...')
+
     def run_training_loop(self):
 
         self.rl_trainer.run_training_loop(
@@ -48,7 +63,8 @@ class BC_Trainer(object):
 def main():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('--expert_policy_file', '-epf', type=str, required=False)  # relative to where you're running this script from
+    parser.add_argument('--expert_policy_file', '-epf', type=str, default='/home/thankyou-always/TODO/research/bayesian_traffic_highway/highway_env/vehicle/data/q1_1_intersection-pedestrian-v0_15-12-2020_23-47-18/policy_itr_0.pt', required=False)  # relative to where you're running this script from
+    parser.add_argument('--learned_policy_file', '-lpf', type=str, default='/home/thankyou-always/TODO/research/bayesian_traffic_highway/highway_env/vehicle/data/q1_1_intersection-pedestrian-v0_15-12-2020_23-47-18/policy_itr_0.pt', required=False)  # relative to where you're running this script from
     parser.add_argument('--expert_data', '-ed', type=str, required=False) #relative to where you're running this script from
     parser.add_argument('--env_name', '-env', type=str, help='choices: Ant-v2, Humanoid-v2, Walker-v2, HalfCheetah-v2, Hopper-v2', required=True)
     parser.add_argument('--exp_name', '-exp', type=str, default='pick an experiment name', required=True)
