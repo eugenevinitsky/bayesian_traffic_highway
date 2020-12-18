@@ -84,26 +84,35 @@ class IDMVehicle(ControlledVehicle):
         For now, no action is supported because the vehicle takes all decisions
         of acceleration and lane changes on its own, based on the IDM and MOBIL models.
 
-        :param action: the action
+        :param action: dict with keys acceleration, steeering, supplied_action (supplied action is
+        the env specified action)
         """
         if self.crashed:
             return
-        action = {}
+        action_dct = {}
         front_vehicle, rear_vehicle = self.road.neighbour_vehicles(self)
         # Lateral: MOBIL
         self.follow_road()
         if self.enable_lane_change:
             self.change_lane_policy()
-        action['steering'] = self.steering_control(self.target_lane_index)
-        action['steering'] = np.clip(action['steering'], -self.MAX_STEERING_ANGLE, self.MAX_STEERING_ANGLE)
+        action_dct['steering'] = self.steering_control(self.target_lane_index)
+        action_dct['steering'] = np.clip(action_dct['steering'], -self.MAX_STEERING_ANGLE, self.MAX_STEERING_ANGLE)
 
         # Longitudinal: IDM
-        action['acceleration'] = self.acceleration(ego_vehicle=self,
-                                                   front_vehicle=front_vehicle,
-                                                   rear_vehicle=rear_vehicle)
+        if action:
+            action_dct['acceleration'] = self.acceleration(ego_vehicle=self,
+                                                       front_vehicle=front_vehicle,
+                                                       rear_vehicle=rear_vehicle,
+                                                       action=action['supplied_action'])
+        else:
+            action_dct['acceleration'] = self.acceleration(ego_vehicle=self,
+                                                front_vehicle=front_vehicle,
+                                                rear_vehicle=rear_vehicle,
+                                                action=None) 
+                                                                                           
         # action['acceleration'] = self.recover_from_stop(action['acceleration'])
-        action['acceleration'] = np.clip(action['acceleration'], -self.ACC_MAX, self.ACC_MAX)
-        Vehicle.act(self, action)  # Skip ControlledVehicle.act(), or the command will be overriden.
+        action_dct['acceleration'] = np.clip(action_dct['acceleration'], -self.ACC_MAX, self.ACC_MAX)
+        Vehicle.act(self, action_dct)  # Skip ControlledVehicle.act(), or the command will be overriden.
 
     def step(self, dt: float):
         """
@@ -119,7 +128,8 @@ class IDMVehicle(ControlledVehicle):
     def acceleration(self,
                      ego_vehicle: ControlledVehicle,
                      front_vehicle: Vehicle = None,
-                     rear_vehicle: Vehicle = None) -> float:
+                     rear_vehicle: Vehicle = None,
+                     action: int = None) -> float:
         """
         Compute an acceleration command with the Intelligent Driver Model.
 
@@ -132,6 +142,7 @@ class IDMVehicle(ControlledVehicle):
                             reason about other vehicles behaviors even though they may not IDMs.
         :param front_vehicle: the vehicle preceding the ego-vehicle
         :param rear_vehicle: the vehicle following the ego-vehicle
+        :param action: an action supplied by the env itself that the vehicle should take
         :return: the acceleration command for the ego-vehicle [m/s2]
         """
         if not ego_vehicle or isinstance(ego_vehicle, RoadObject):
@@ -337,7 +348,8 @@ class LinearVehicle(IDMVehicle):
     def acceleration(self,
                      ego_vehicle: ControlledVehicle,
                      front_vehicle: Vehicle = None,
-                     rear_vehicle: Vehicle = None) -> float:
+                     rear_vehicle: Vehicle = None,
+                     action=None) -> float:
         """
         Compute an acceleration command with a Linear Model.
 

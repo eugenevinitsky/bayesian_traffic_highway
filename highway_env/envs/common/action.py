@@ -120,16 +120,19 @@ class ContinuousAction(ActionType):
             self.controlled_vehicle.act({
                 "acceleration": utils.lmap(action[0], [-1, 1], self.acceleration_range),
                 "steering": utils.lmap(action[1], [-1, 1], self.steering_range),
+                "supplied_action": action
             })
         elif self.longitudinal:
             self.controlled_vehicle.act({
                 "acceleration": utils.lmap(action[0], [-1, 1], self.acceleration_range),
                 "steering": 0,
+                "supplied_action": action
             })
         elif self.lateral:
             self.controlled_vehicle.act({
                 "acceleration": 0,
-                "steering": utils.lmap(action[0], [-1, 1], self.steering_range)
+                "steering": utils.lmap(action[0], [-1, 1], self.steering_range),
+                "supplied_action": action
             })
         self.last_action = action
 

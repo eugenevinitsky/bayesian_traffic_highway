@@ -377,11 +377,6 @@ class MultiAgentObservation(ObservationType):
 class IntersectionWithPedObservation(ObservationType):
     """Observe the features of an intersection from the pov of an ego car.
     """
-
-    EGO_FEATURES: List[str] = ["x", "y", "vx", "vy", "heading", "arr_order"]
-    PED_FEATURES: List[str] = ["ped_1", "ped_2", "ped_3", "ped_4"]
-    NON_EGO_FEATURES: List[str] = ["x", "y", "vx", "vy", "heading", "arr_order"]
-
     def __init__(self, env: 'intersection-pedestrian-v0',
                  features: List[str] = None,
                  vehicles_count: int = 5,
@@ -405,9 +400,19 @@ class IntersectionWithPedObservation(ObservationType):
         :param observe_intentions: Observe the destinations of other vehicles
         """
         super().__init__(env)
-        self.features = features or self.FEATURES
+        env_obs_dct = env.config['observation']
+
+        self.num_non_ego_vehicles = env_obs_dct['num_non_ego_vehicles']
+        self.car_feature_names = env_obs_dct['car_feature_names']
+        self.ego_feature_names = env_obs_dct['ego_feature_names']
+        self.ped_feature_names = env_obs_dct['ped_feature_names']
+        self.non_ego_feature_names = env_obs_dct['non_ego_feature_names']
+        self.feature_names = env_obs_dct['feature_names']
+
+        self.features_range = None # env_obs_dct['features_range'] if you want to set these all again :)
+
+        # not sure what these guys are up to
         self.vehicles_count = vehicles_count
-        self.features_range = features_range
         self.absolute = absolute
         self.order = order
         self.normalize = normalize
@@ -416,23 +421,34 @@ class IntersectionWithPedObservation(ObservationType):
         self.observe_intentions = observe_intentions
 
     def space(self) -> spaces.Space:
-        return spaces.Box(shape=(self.vehicles_count, len(self.features)), low=-1, high=1, dtype=np.float32)
+        return spaces.Box(shape=(len(self.feature_names),), low=-1, high=1, dtype=np.float32)
 
     def normalize_obs(self, df: pd.DataFrame) -> pd.DataFrame:
         """
         Normalize the observation values.
-
         For now, assume that the road is straight along the x axis.
         :param Dataframe df: observation data
         """
         if not self.features_range:
             side_lanes = self.env.road.network.all_side_lanes(self.observer_vehicle.lane_index)
             self.features_range = {
-                "x": [-5.0 * MDPVehicle.SPEED_MAX, 5.0 * MDPVehicle.SPEED_MAX],
-                "y": [-AbstractLane.DEFAULT_WIDTH * len(side_lanes), AbstractLane.DEFAULT_WIDTH * len(side_lanes)],
-                "vx": [-2*MDPVehicle.SPEED_MAX, 2*MDPVehicle.SPEED_MAX],
-                "vy": [-2*MDPVehicle.SPEED_MAX, 2*MDPVehicle.SPEED_MAX]
-            }
+                    "ego_x": [-5.0 * MDPVehicle.SPEED_MAX, 5.0 * MDPVehicle.SPEED_MAX],
+                    "ego_y": [-AbstractLane.DEFAULT_WIDTH * len(side_lanes), AbstractLane.DEFAULT_WIDTH * len(side_lanes)],
+                    "ego_vx": [-2*MDPVehicle.SPEED_MAX, 2*MDPVehicle.SPEED_MAX],
+                    "ego_vy": [-2*MDPVehicle.SPEED_MAX, 2*MDPVehicle.SPEED_MAX],
+                    "ego_heading": [-2*np.pi, 2*np.pi], # TODO check
+                    "ego_arr_order": [-1, 3] # necessary?
+                }
+            for i in range(self.num_non_ego_vehicles):
+                self.features_range.update({
+                    f"non_ego_{i}_x": [-5.0 * MDPVehicle.SPEED_MAX, 5.0 * MDPVehicle.SPEED_MAX],
+                    f"non_ego_{i}_y": [-AbstractLane.DEFAULT_WIDTH * len(side_lanes), AbstractLane.DEFAULT_WIDTH * len(side_lanes)],
+                    f"non_ego_{i}_vx": [-2*MDPVehicle.SPEED_MAX, 2*MDPVehicle.SPEED_MAX],
+                    f"non_ego_{i}_vy": [-2*MDPVehicle.SPEED_MAX, 2*MDPVehicle.SPEED_MAX],
+                    f"non_ego_{i}_heading": [-2*np.pi, 2*np.pi], # TODO check
+                    f"non_ego_{i}_arr_order": [-1, 3] # necessary?
+                })
+
         for feature, f_range in self.features_range.items():
             if feature in df:
                 df[feature] = utils.lmap(df[feature], [f_range[0], f_range[1]], [-1, 1])
@@ -445,28 +461,29 @@ class IntersectionWithPedObservation(ObservationType):
             return np.zeros(self.space().shape)
 
         # Add ego-vehicle
-        df = pd.DataFrame.from_records([self.observer_vehicle.to_dict()])[self.features]
+        df = pd.DataFrame.from_records([self.observer_vehicle.to_dict()])[self.feature_names]
         # Add nearby traffic
         # sort = self.order == "sorted"
-        close_vehicles = self.env.road.close_vehicles_to(self.observer_vehicle,
-                                                         self.env.PERCEPTION_DISTANCE,
-                                                         count=self.vehicles_count - 1,
-                                                         see_behind=self.see_behind)
-        if close_vehicles:
-            origin = self.observer_vehicle if not self.absolute else None
-            df = df.append(pd.DataFrame.from_records(
-                [v.to_dict(origin, observe_intentions=self.observe_intentions)
-                 for v in close_vehicles[-self.vehicles_count + 1:]])[self.features],
-                           ignore_index=True)
+        # close_vehicles = self.env.road.close_vehicles_to(self.observer_vehicle,
+        #                                                  self.env.PERCEPTION_DISTANCE,
+        #                                                  count=self.vehicles_count - 1,
+        #                                                  see_behind=self.see_behind)
+        # if close_vehicles:
+        #     origin = self.observer_vehicle if not self.absolute else None
+        #     df = df.append(pd.DataFrame.from_records(
+        #         [v.to_dict(origin, observe_intentions=self.observe_intentions)
+        #          for v in close_vehicles[-self.vehicles_count + 1:]])[self.features],
+        #                    ignore_index=True)
         # Normalize and clip
         if self.normalize:
             df = self.normalize_obs(df)
-        # Fill missing rows
-        if df.shape[0] < self.vehicles_count:
-            rows = np.zeros((self.vehicles_count - df.shape[0], len(self.features)))
-            df = df.append(pd.DataFrame(data=rows, columns=self.features), ignore_index=True)
+        # # Fill missing rows
+        # if df.shape[0] < self.vehicles_count:
+        #     rows = np.zeros((self.vehicles_count - df.shape[0], len(self.features)))
+        #     df = df.append(pd.DataFrame(data=rows, columns=self.feature_names), ignore_index=True)
+
         # Reorder
-        df = df[self.features]
+        df = df[self.feature_names]
         obs = df.values.copy()
         if self.order == "shuffled":
             self.env.np_random.shuffle(obs[1:])

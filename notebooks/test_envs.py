@@ -105,7 +105,7 @@ def MPC(environment, num_steps_per_simulation):
 
 
 def run(scenario=1, inference_noise_std=0.0):
-    env = gym.make('intersection-pedestrian-v0')
+    env = gym.make('intersection-pedestrian-v0', config)
 
     # pick custom scenario
     env.config["scenario"] = scenario

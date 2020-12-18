@@ -1,6 +1,8 @@
 from typing import Tuple, Union
-import numpy as np
 from collections import defaultdict
+
+import numpy as np
+import pandas as pd
 
 from highway_env.road.road import Road, Route, LaneIndex
 from highway_env.types import Vector
@@ -13,6 +15,11 @@ from highway_env.road.lane import StraightLane
 from highway_env.bayesian_inference.inference import get_filtered_posteriors
 from highway_env import utils
 
+NUM_NON_EGO_VEHICLES = 3
+CAR_FEATURE_NAMES = ["x", "y", "vx", "vy", "heading", "arr_order"]
+EGO_FEATURE_NAMES = [f"ego_{feature}" for feature in CAR_FEATURE_NAMES]
+PED_FEATURE_NAMES = ["ped_0", "ped_1", "ped_2", "ped_3"]
+NON_EGO_FEATURE_NAMES = [f"non_ego_{i}_{feature}" for feature in CAR_FEATURE_NAMES for i in range(NUM_NON_EGO_VEHICLES)]
 
 # minimal and maximal acceleration for all vehicles
 ACC_MIN = -4
@@ -20,7 +27,7 @@ ACC_MAX = 3
 
 class FullStop(IDMVehicle):
     """Vehicle that shouldn't move (eg obstacle)"""
-    def acceleration(self, ego_vehicle, front_vehicle=None, rear_vehicle=None, peds=None):    
+    def acceleration(self, ego_vehicle, front_vehicle=None, rear_vehicle=None, peds=None, action=None):    
         return ACC_MIN
 
 class Pedestrian(IDMVehicle):
@@ -50,12 +57,21 @@ class L0Vehicle(IDMVehicle):
         self.accel = 0
         # arrival order from our P.O.V
         self.arrival_order = dict()
-        # state names
-        self.ego_states_names = ["x", "y", "vx", "vy", "heading", "arrival_order"]
-        self.ped_states_names = ["ped_1", "ped_2", "ped_3", "ped_4"]
-        self.non_ego_states_names = ["x", "y", "vx", "vy", "heading", "arrival_order"]
-        self.max_other_vehs = 3
-        
+        # env
+        self.env = self.params['env']
+        # feature names
+        self.num_non_ego_vehicles = NUM_NON_EGO_VEHICLES
+        self.car_feature_names = CAR_FEATURE_NAMES
+        self.ego_feature_names = EGO_FEATURE_NAMES
+        self.ped_feature_names = PED_FEATURE_NAMES
+        self.non_ego_feature_names = NON_EGO_FEATURE_NAMES
+        self.feature_names = EGO_FEATURE_NAMES + PED_FEATURE_NAMES + NON_EGO_FEATURE_NAMES
+        # state dict
+        self.state_dct = dict()
+    
+    def to_dict(self, origin_vehicle: "Vehicle" = None, observe_intentions: bool = True) -> dict:
+        return self.get_state_dct()
+
     def arrived_at_intersection(self, v):
         """Arrived at intersection means vehicle v is 2m or less away from intersection"""
         threshold_arrival = 2 # threshold to be detected as arriving to intersection
@@ -84,7 +100,7 @@ class L0Vehicle(IDMVehicle):
                     ids_crossed.append(crossing_id)
         self.ids_crossed = set(ids_crossed)
 
-    def acceleration(self, ego_vehicle, front_vehicle=None, rear_vehicle=None, peds=None, noise=False, infer=False):
+    def acceleration(self, ego_vehicle, front_vehicle=None, rear_vehicle=None, peds=None, noise=False, infer=False, action=None):
         # compute default IDM acceleration (pedestrians are not accounted for as obstacles)
         if isinstance(front_vehicle, Pedestrian): front_vehicle = None
         if isinstance(rear_vehicle, Pedestrian): rear_vehicle = None
@@ -124,21 +140,44 @@ class L0Vehicle(IDMVehicle):
         if not infer:
             self.accel = accel
 
-        peds = list(map(lambda x: int(x), peds))
-        ego_states = [self.position[0], self.position[1], self.heading, self.speed, self.arrival_order.get(self, -1)]
+        # peds = list(map(lambda x: int(x), peds))
+        # ego_states = [self.position[0], self.position[1], self.heading, self.speed, self.arrival_order.get(self, -1)]
         
-        non_ego_states = []
-        # compute arrival orders
-        for v in self.road.vehicles:
-            if not (v == self or (isinstance(v, Pedestrian) or isinstance(v, FullStop))):
-                v_state = [v.position[0], v.position[1], v.heading, v.speed, v.arrival_order.get(v, -1)]
-                non_ego_states += v_state
+        # non_ego_states = []
+        # # compute arrival orders
+        # for v in self.road.vehicles:
+        #     if not (v == self or (isinstance(v, Pedestrian) or isinstance(v, FullStop))):
+        #         v_state = [v.position[0], v.position[1], v.heading, v.speed, v.arrival_order.get(v, -1)]
+        #         non_ego_states += v_state
 
-        self.state = ego_states + peds + non_ego_states
-        extra_states = len(self.ego_states_names) + len(self.ped_states_names) + self.max_other_vehs * len(self.non_ego_states_names) - len(self.state)
-        self.state += [0] * extra_states
+        # self.state = ego_states + peds + non_ego_states
+        # extra_states = len(self.ego_states_names) + len(self.ped_states_names) + self.max_other_vehs * len(self.non_ego_states_names) - len(self.state)
+        # self.state += [0] * extra_states
 
+        if self in self.env.controlled_vehicles:
+            print(f'controlled veh accel')
+            if action != None:
+                print(f'controlled veh accel is non-zero {action}')
+                return action
         return accel
+
+    def get_normalized_state(self):
+        if not self.road:
+            return np.zeros(self.space().shape)
+
+        # Add ego-vehicle
+        df = pd.DataFrame.from_records([self.to_dict()])[self.feature_names]
+       
+        # Normalize and clip
+        if self.normalize:
+            df = self.normalize_obs(df)
+        # Reorder
+        df = df[self.feature_names]
+        obs = df.values.copy()
+        if self.order == "shuffled":
+            self.env.np_random.shuffle(obs[1:])
+        # Flatten
+        return obs
 
     def get_ped_state(self, peds=None):
         # get crossings where there are pedestrians (without obstruction) unless provided
@@ -156,7 +195,7 @@ class L0Vehicle(IDMVehicle):
                             peds[idx] = True
         return peds
 
-    def get_state(self):
+    def get_state(self, peds=None):
         """Return state vector for current vehicle"""
         peds = list(map(lambda x: int(x), peds))
         ego_states = [self.position[0], self.position[1], self.heading, self.speed, self.arrival_order.get(self, -1)]
@@ -171,6 +210,69 @@ class L0Vehicle(IDMVehicle):
         self.state = ego_states + peds + non_ego_states
         extra_states = len(self.ego_states_names) + len(self.ped_states_names) + self.max_other_vehs * len(self.non_ego_states_names) - len(self.state)
         self.state += [0] * extra_states
+
+    def normalize_obs(self, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Normalize the observation values.
+
+        For now, assume that the road is straight along the x axis.
+        :param Dataframe df: observation data
+        """
+        if not self.features_range:
+            side_lanes = self.env.road.network.all_side_lanes(self.observer_vehicle.lane_index)
+            self.features_range = {
+                "x": [-5.0 * MDPVehicle.SPEED_MAX, 5.0 * MDPVehicle.SPEED_MAX],
+                "y": [-AbstractLane.DEFAULT_WIDTH * len(side_lanes), AbstractLane.DEFAULT_WIDTH * len(side_lanes)],
+                "vx": [-2*MDPVehicle.SPEED_MAX, 2*MDPVehicle.SPEED_MAX],
+                "vy": [-2*MDPVehicle.SPEED_MAX, 2*MDPVehicle.SPEED_MAX]
+            }
+        for feature, f_range in self.features_range.items():
+            if feature in df:
+                df[feature] = utils.lmap(df[feature], [f_range[0], f_range[1]], [-1, 1])
+                if self.clip:
+                    df[feature] = np.clip(df[feature], -1, 1)
+        return df
+
+        
+    def get_state_dct(self, peds=None):
+        """Return state dct for current vehicle (return a dict for normalization purposes)"""
+        ego_states = {}
+        ped_states = {}
+        non_ego_states = {}
+
+        # fill ego states
+        ego_states = {'ego_x': self.position[0], 'ego_y': self.position[1], 'ego_heading': self.heading, 
+                      'ego_vx': self.velocity[0], 'ego_vy': self.velocity[1], 'ego_arr_order': self.arrival_order.get(self, -1)}
+        
+        # fill ped states
+        ped_state_lst = self.get_ped_state(peds) 
+        for i, ped_val in enumerate(ped_state_lst):
+            ped_states[f'ped_{i}'] = int(ped_val)
+
+        # zero-fill non ego states
+        for idx in range(self.num_non_ego_vehicles):
+            non_ego_states[f'non_ego_{idx}_x'] = 0
+            non_ego_states[f'non_ego_{idx}_y'] = 0
+            non_ego_states[f'non_ego_{idx}_vx'] = 0
+            non_ego_states[f'non_ego_{idx}_vy'] = 0
+            non_ego_states[f'non_ego_{idx}_heading'] = 0
+            non_ego_states[f'non_ego_{idx}_arr_order'] = -1 
+
+        # fill non ego states
+        for idx, v in enumerate(self.road.vehicles):
+            if not (v == self or (isinstance(v, Pedestrian) or isinstance(v, FullStop))):
+                non_ego_states[f'non_ego_{idx}_x'] = v.position[0]
+                non_ego_states[f'non_ego_{idx}_y'] = v.position[1]
+                non_ego_states[f'non_ego_{idx}_vx'] = v.velocity[0]
+                non_ego_states[f'non_ego_{idx}_vy'] = v.velocity[1]
+                non_ego_states[f'non_ego_{idx}_heading'] = v.heading
+                non_ego_states[f'non_ego_{idx}_arr_order'] = v.arrival_order.get(v, -1) 
+
+        self.state_dct.update(ego_states)
+        self.state_dct.update(ped_states)
+        self.state_dct.update(non_ego_states)
+
+        return self.state_dct
 
 class L1Vehicle(L0Vehicle):
     """Rule based vehicle (L0) operating on an inferred belief state"""
@@ -187,7 +289,7 @@ class L1Vehicle(L0Vehicle):
         # L1 priors
         self.priors = dict()
 
-    def acceleration(self, ego_vehicle, front_vehicle=None, rear_vehicle=None, peds=None):
+    def acceleration(self, ego_vehicle, front_vehicle=None, rear_vehicle=None, peds=None, action=None):
         # plot data
         for v in self.road.vehicles:
             if not (isinstance(v, Pedestrian) or isinstance(v, FullStop)):
@@ -258,7 +360,7 @@ class L2Vehicle(L0Vehicle):
             self.last_action = action['acceleration']
         super().act(action)
 
-    def acceleration(self, ego_vehicle, front_vehicle=None, rear_vehicle=None, peds=None, noise=False, infer=False):
+    def acceleration(self, ego_vehicle, front_vehicle=None, rear_vehicle=None, peds=None, noise=False, infer=False, action=None):
         # if L1 asks for inference, return what L0 would do
         if peds is not None:
             return super().acceleration(ego_vehicle, front_vehicle, rear_vehicle, peds=peds, infer=True)

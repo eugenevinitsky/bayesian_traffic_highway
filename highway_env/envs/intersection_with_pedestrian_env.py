@@ -15,20 +15,34 @@ from highway_env.vehicle.controller import MDPVehicle, ControlledVehicle
 from highway_env.vehicle.behavior import IDMVehicle
 from highway_env.vehicle.l012vehicles import L0Vehicle, L1Vehicle, L2Vehicle, Pedestrian, FullStop
 
+# 3 sources of truth: 2x here and 1x in l012vehicles.py, because I can't reference the env from the vehicles (could pass the env obj in ...)
+
+
+NUM_NON_EGO_VEHICLES = 3
+CAR_FEATURE_NAMES = ["x", "y", "vx", "vy", "heading", "arr_order"]
+EGO_FEATURE_NAMES = [f"ego_{feature}" for feature in CAR_FEATURE_NAMES]
+PED_FEATURE_NAMES = ["ped_0", "ped_1", "ped_2", "ped_3"]
+NON_EGO_FEATURE_NAMES = [f"non_ego_{i}_{feature}" for feature in CAR_FEATURE_NAMES for i in range(NUM_NON_EGO_VEHICLES)]
+
 class PedestrianIntersectionEnv(IntersectionEnv):
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, config):
+        super().__init__(config)
         self.arrival_position = dict()
         
     @classmethod
     def default_config(cls) -> dict:
+        print('default config called')
         config = super().default_config()
         config.update({
             "observation": {
-                "type": "Kinematics",
-                "vehicles_count": 5,
-                "features": ["presence", "x", "y", "vx", "vy", "cos_h", "sin_h"],
+                "type": "IntersectionWithPedObservation",
+                "num_non_ego_vehicles": NUM_NON_EGO_VEHICLES,
+                "car_feature_names": CAR_FEATURE_NAMES,
+                "ego_feature_names": EGO_FEATURE_NAMES,
+                "ped_feature_names": PED_FEATURE_NAMES,
+                "non_ego_feature_names": NON_EGO_FEATURE_NAMES,
+                "feature_names": EGO_FEATURE_NAMES + PED_FEATURE_NAMES + NON_EGO_FEATURE_NAMES,
                 "features_range": {
                     "x": [-100, 100],
                     "y": [-100, 100],
@@ -57,7 +71,9 @@ class PedestrianIntersectionEnv(IntersectionEnv):
             "centering_position": [0.5, 0.6],
             "scaling": 5.5 * 0.6,
             "collision_reward": IntersectionEnv.COLLISION_REWARD,
-            "normalize_reward": False
+            "normalize_reward": False,
+            "simulation_frequency": 10,
+            "policy_frequency": 10
         })
         return config
 
@@ -173,10 +189,10 @@ class PedestrianIntersectionEnv(IntersectionEnv):
 
     def _reset(self) -> None:
         super()._reset()
-        self.set_observer_vehicle('L0Vehcile')
+        self.set_observer_vehicle('L0Vehicle')
 
-    def set_observer_vehicle(self, veh_type):
-        """Set observer vehicle to any vehicle of type veh_type
+    def set_observer_vehicle(self, veh_name):
+        """Set observer vehicle to vehicle with name veh_name
         
         @Parameters
         veh_type: string
@@ -226,7 +242,8 @@ class PedestrianIntersectionEnv(IntersectionEnv):
                 'ped_delete_condition': (lambda ped: ped.position[1] > 7) if self.config["scenario"] in [1] \
                     else (lambda ped: ped.position[0] < -3) if self.config["scenario"] in [9] \
                     else (lambda ped: ped.position[0] < 0) if self.config["scenario"] in [10] \
-                    else lambda ped: False
+                    else lambda ped: False,
+                'env': self
             }
             vehicle = vclass.make_on_lane(self.road, lane, longitudinal=pos, speed=speed, params=params)
 
@@ -271,8 +288,8 @@ class PedestrianIntersectionEnv(IntersectionEnv):
             if self.config["scenario"] == 0: # debug
                 raise ValueError
             elif self.config["scenario"] == 1:
-                spawn_vehicle(vclass=L1Vehicle, lane=("o3", "ir3", 0), dest="o1", pos=75, speed=8.0, type="car", controlled=True)
-                spawn_vehicle(vclass=L0Vehicle, lane=("o1", "ir1", 0), dest="o3", pos=70, speed=8.0, type="car")
+                spawn_vehicle(vclass=L0Vehicle, lane=("o1", "ir1", 0), dest="o3", pos=70, speed=8.0, type="car", controlled=True)
+                spawn_vehicle(vclass=L0Vehicle, lane=("o3", "ir3", 0), dest="o1", pos=75, speed=8.0, type="car")
                 spawn_vehicle(vclass=Pedestrian, lane=("p2", "p2_end", 0), dest="p2_end", pos=1, speed=2.0, type="ped")
                 spawn_vehicle(vclass=FullStop, lane=("o2", "ir2", 0), dest="o1", pos=97, speed=0.0, type="bus")
                 # spawn_vehicle(vclass=FullStop, lane=("ir2", "il1", 0), dest="o1", pos=2, speed=2.0, heading=3.1415/16*12, type="bus")
