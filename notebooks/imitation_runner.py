@@ -1,11 +1,14 @@
 import numpy as np
 import gym
+import torch
 import highway_env
 
 from highway_env.vehicle.l012vehicles import L0Vehicle, L1Vehicle, L2Vehicle, Pedestrian, FullStop
-from notebooks.notebook_utils.cli_parser import create_parser
+from notebooks.notebook_utils.cli_parser import create_parser, get_cli_params
+from highway_env.vehicle.imitation_controller.policies.MLP_policy import MLPPolicySL
 
-def run(args):
+
+def run(args, params):
 
     env_config = dict()
     if args.scenario == 1:
@@ -16,30 +19,40 @@ def run(args):
 
     env = gym.make('intersection-pedestrian-v0', config=env_config)
     done = False
+    agent_params = {
+        'n_layers': params['n_layers'],
+        'size': params['size'],
+        'learning_rate': params['learning_rate'],
+        'max_replay_buffer_size': params['max_replay_buffer_size'],
+        'discrete': False
+        }  
+                # Observation and action sizes
+    ob_dim = env.observation_space.shape[0]
+    ac_dim = env.action_space.shape[0]
+    agent_params['ac_dim'] = ac_dim
+    agent_params['ob_dim'] = ob_dim
 
-    # print('Loading policy from...', args.params['learned_policy_file'])
-    # import ipdb; ipdb.set_trace()
-    # self.loaded_expert_policy = MLPPolicySL(self.rl_trainer.agent.agent_params['ac_dim'],
-    #                                         self.rl_trainer.agent.agent_params['ob_dim'],
-    #                                         self.rl_trainer.agent.agent_params['n_layers'],
-    #                                         self.rl_trainer.agent.agent_params['size'],
-    #                                         discrete=self.rl_trainer.agent.agent_params['discrete'],
-    #                                         learning_rate=self.rl_trainer.agent.agent_params['learning_rate'])
-    # self.loaded_expert_policy.load_state_dict(torch.load(self.params['learned_policy_file'])) 
-    # obs = torch.zeros(1, 1, 28).to(torch.device("cuda"))
-    # self.loaded_expert_policy.mean_net(obs)                                       
-    # print('Done restoring learned policy...')
-    # self.collect_policy=self.loaded_expert_policy
+    # actor/policy
+    collect_policy = MLPPolicySL(
+        agent_params['ac_dim'],
+        agent_params['ob_dim'],
+        agent_params['n_layers'],
+        agent_params['size'],
+        discrete=agent_params['discrete'],
+        learning_rate=agent_params['learning_rate'],
+    )
+
+    collect_policy.load_state_dict(torch.load(params['collect_policy_path']))
 
     obs = env.reset()
     while not done:
-        # agent = agent_factory(config)
-        # action = agent.act(obs)
-        action = None # if action is None, do normal controls
+        action = collect_policy.get_action(obs)[0]
+        # action = None # if action is None, do normal controls
         obs, reward, done, info = env.step(action)
         env.render()
 
 if __name__ == '__main__':
     parser = create_parser()
     args = parser.parse_args()
-    run(args)
+    params = get_cli_params()
+    run(args, params)
