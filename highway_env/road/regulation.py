@@ -12,7 +12,7 @@ from highway_env.vehicle.l012vehicles import Pedestrian
 
 class RegulatedRoad(Road):
     YIELDING_COLOR: Tuple[float, float, float] = None
-    REGULATION_FREQUENCY: int = 2
+    REGULATION_FREQUENCY: int = 1
     YIELD_DURATION: float = 0.
 
     def __init__(self, network: RoadNetwork = None, vehicles: List[Vehicle] = None, obstacles: List[Obstacle] = None,

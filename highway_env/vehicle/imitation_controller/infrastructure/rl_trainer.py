@@ -9,6 +9,7 @@ import torch
 from highway_env.vehicle.imitation_controller.infrastructure import pytorch_util as ptu
 from highway_env.vehicle.imitation_controller.infrastructure.logger import Logger
 from highway_env.vehicle.imitation_controller.infrastructure import utils
+from highway_env.vehicle.imitation_controller.policies import MLP_policy
 
 # how many rollouts to save as videos to tensorboard
 MAX_NVIDEO = 2
@@ -58,15 +59,15 @@ class RL_Trainer:
         # agent
         agent_class = self.params['agent_class']
         self.agent = agent_class(self.env, self.params['agent_params'])
+        # self.agent.actor isn't the collect policy
 
-    def run_training_loop(self, n_iter, collect_policy, relabel_with_expert, start_relabel_with_expert, expert_policy=None, collect_expert_data=False):
+    def run_training_loop(self, n_iter, collect_policy, relabel_with_expert, start_relabel_with_expert, expert_policy=None):
         """
         @Params
         n_iter: number of iterations
         collect_policy: policy used to step through the env and take actions
         relabel_with_expert: whether or not to perform dagger       
         start_relabel_with_expert: iteration at which to start relabel with expert
-        collect_expert_data: whether or not to simply run the env using the expert and collect the data of the expert
         expert_policy: expert policy NB this may be a string 
             e.g. "rule_based" where we'd use an 'L0' controller
             yes, this is breaking abstraction barriers - might fix it later 
@@ -78,12 +79,9 @@ class RL_Trainer:
         for itr in range(n_iter):
             print("\n\n********** Iteration %i ************"%itr)
 
-            training_returns = self.collect_training_trajectories(itr, collect_policy, self.params['batch_size'], expert_policy, collect_expert_data)
+            training_returns = self.collect_training_trajectories(itr, collect_policy, self.params['batch_size'], expert_policy)
             paths, envsteps_this_batch, train_video_paths = training_returns
             self.total_envsteps += envsteps_this_batch
-
-            if relabel_with_expert and itr >= start_relabel_with_expert:
-                paths = self.do_relabel_with_expert(expert_policy, paths)
             
             self.agent.add_to_replay_buffer(paths)
             training_logs = self.train_agent()
@@ -92,7 +90,7 @@ class RL_Trainer:
             print('\nSaving agent params')
             self.agent.save('{}.pt'.format(self.params['logdir']))
 
-    def collect_training_trajectories(self, itr, collect_policy, batch_size, expert_policy=None, collect_expert_data=False):
+    def collect_training_trajectories(self, itr, collect_policy, batch_size, expert_policy=None):
         """
         @Params
         itr: iteration number
@@ -108,7 +106,7 @@ class RL_Trainer:
 
         print("\nCollecting data to be used for training...")
         paths, envsteps_this_batch = utils.sample_trajectories(self.env, collect_policy, batch_size, \
-            self.params['ep_len'], render=self.params['render'], expert_policy=expert_policy, collect_expert_data=collect_expert_data)
+            self.params['ep_len'], render=self.params['render'], expert_policy=expert_policy)
         train_video_paths = None
         return paths, envsteps_this_batch, train_video_paths
 

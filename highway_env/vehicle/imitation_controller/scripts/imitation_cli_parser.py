@@ -11,13 +11,12 @@ def create_parser():
     parser.add_argument('--env_name', type=str, default='intersection-pedestrian-v0', required=True, help='Specific the env name')
     parser.add_argument('--exp_name', type=str, default='imitation_learning', required=True, help='Specific the experiment name')
     parser.add_argument('--save_params', type=bool, default=False, required=True)
-
     parser.add_argument('--scenario', type=int, default=1, required=True, help='Specific the scenario to run. Options: 1 (4 way intersection)')
-    # optional input parameters
-    parser.add_argument('--expert_policy_path', type=str, default='rule_based', help='Specific the expert policy path name if we wish to load an expert policy, otherwise we can set the expert to run_based')
-    parser.add_argument('--collect_expert_data', action='store_true', help='Decide if we want to directly collect the expert trajectories')
-    parser.add_argument('--max_replay_buffer_size', type=int, default=1000000)
 
+    # optional input parameters
+    parser.add_argument('--expert_policy_path', type=str, default='', help='Specify the expert policy path. Options: "rule_based", "human_input" #TODO (not supported yet), an actual neural net policy path')
+    parser.add_argument('--collect_policy_path', type=str, default='', help="Collect policy is the 'beginner' neural net policy that gets trained and steps the environment. If empty string, create a new neural net policy")
+    parser.add_argument('--max_replay_buffer_size', type=int, default=1000000)
     parser.add_argument('--no_gpu', '-ngpu', action='store_true')
     parser.add_argument('--which_gpu', type=int, default=0)
 

@@ -214,7 +214,6 @@ class AbstractEnv(gym.Env):
                     and not self.config["manual_control"] \
                     and self.time % int(self.config["simulation_frequency"] // self.config["policy_frequency"]) == 0:
                 self.action_type.act(action)
-
             self.road.step(1 / self.config["simulation_frequency"])
             self.time += 1
 
