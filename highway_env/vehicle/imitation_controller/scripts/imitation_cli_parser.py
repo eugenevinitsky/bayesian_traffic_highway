@@ -10,6 +10,7 @@ def create_parser():
     # required input parameters
     parser.add_argument('--env_name', type=str, default='intersection-pedestrian-v0', required=True, help='Specific the env name')
     parser.add_argument('--exp_name', type=str, default='imitation_learning', required=True, help='Specific the experiment name')
+    parser.add_argument('--save_params', type=bool, default=False, required=True)
 
     parser.add_argument('--scenario', type=int, default=1, required=True, help='Specific the scenario to run. Options: 1 (4 way intersection)')
     # optional input parameters
@@ -22,7 +23,7 @@ def create_parser():
 
     parser.add_argument('--render', action='store_true')
     parser.add_argument('--do_dagger', action='store_true')
-    parser.add_argument('--ep_len', type=int, default=220)
+    parser.add_argument('--ep_len', type=int, default=250)
 
     parser.add_argument('--num_agent_train_steps_per_iter', type=int, default=1000)  # number of gradient steps for training policy (per iter in n_iter)
     parser.add_argument('--n_iter', '-n', type=int, default=5)
@@ -37,9 +38,10 @@ def create_parser():
     parser.add_argument('--size', type=int, default=64)  # width of each layer, of policy to be learned
     parser.add_argument('--learning_rate', '-lr', type=float, default=5e-3)  # LR for supervised learning
     
-    parser.add_argument('--save_params', action='store_true')
     parser.add_argument('--seed', type=int, default=1)
     parser.add_argument('--tune_hyperparam', type=bool, default=False)
+    parser.add_argument('--learned_policy_path', type=str, default='')
+
 
     # optional input parameters
     parser.add_argument(

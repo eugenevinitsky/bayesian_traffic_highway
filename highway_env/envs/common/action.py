@@ -115,7 +115,7 @@ class ContinuousAction(ActionType):
 
     def act(self, action: np.ndarray) -> None:
         if self.clip:
-            action = np.clip(action, -1, 1)
+            action = np.clip(action, self.controlled_vehicle.COMFORT_ACC_MIN, self.controlled_vehicle.COMFORT_ACC_MAX)
         if self.longitudinal and self.lateral:
             self.controlled_vehicle.act({
                 "acceleration": utils.lmap(action[0], [-1, 1], self.acceleration_range),
@@ -124,7 +124,7 @@ class ContinuousAction(ActionType):
             })
         elif self.longitudinal:
             self.controlled_vehicle.act({
-                "acceleration": utils.lmap(action[0], [-1, 1], self.acceleration_range),
+                "acceleration": np.clip(action[0], self.controlled_vehicle.COMFORT_ACC_MIN, self.controlled_vehicle.COMFORT_ACC_MAX),
                 "steering": 0,
                 "supplied_action": action
             })

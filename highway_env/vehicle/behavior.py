@@ -99,7 +99,7 @@ class IDMVehicle(ControlledVehicle):
         action_dct['steering'] = np.clip(action_dct['steering'], -self.MAX_STEERING_ANGLE, self.MAX_STEERING_ANGLE)
 
         # Longitudinal: IDM
-        if action:
+        if action != None:
             action_dct['acceleration'] = self.acceleration(ego_vehicle=self,
                                                        front_vehicle=front_vehicle,
                                                        rear_vehicle=rear_vehicle,

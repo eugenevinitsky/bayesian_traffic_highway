@@ -155,9 +155,7 @@ class L0Vehicle(IDMVehicle):
         # self.state += [0] * extra_states
 
         if self in self.env.controlled_vehicles:
-            print(f'controlled veh accel')
             if action != None:
-                print(f'controlled veh accel is non-zero {action}')
                 return action
         return accel
 

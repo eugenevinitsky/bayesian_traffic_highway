@@ -17,6 +17,20 @@ def run(args):
     env = gym.make('intersection-pedestrian-v0', config=env_config)
     done = False
 
+    # print('Loading policy from...', args.params['learned_policy_file'])
+    # import ipdb; ipdb.set_trace()
+    # self.loaded_expert_policy = MLPPolicySL(self.rl_trainer.agent.agent_params['ac_dim'],
+    #                                         self.rl_trainer.agent.agent_params['ob_dim'],
+    #                                         self.rl_trainer.agent.agent_params['n_layers'],
+    #                                         self.rl_trainer.agent.agent_params['size'],
+    #                                         discrete=self.rl_trainer.agent.agent_params['discrete'],
+    #                                         learning_rate=self.rl_trainer.agent.agent_params['learning_rate'])
+    # self.loaded_expert_policy.load_state_dict(torch.load(self.params['learned_policy_file'])) 
+    # obs = torch.zeros(1, 1, 28).to(torch.device("cuda"))
+    # self.loaded_expert_policy.mean_net(obs)                                       
+    # print('Done restoring learned policy...')
+    # self.collect_policy=self.loaded_expert_policy
+
     obs = env.reset()
     while not done:
         # agent = agent_factory(config)

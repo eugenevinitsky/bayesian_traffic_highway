@@ -107,7 +107,8 @@ class RL_Trainer:
         """
 
         print("\nCollecting data to be used for training...")
-        paths, envsteps_this_batch = utils.sample_trajectories(self.env, collect_policy, batch_size, self.params['ep_len'], expert_policy, collect_expert_data)
+        paths, envsteps_this_batch = utils.sample_trajectories(self.env, collect_policy, batch_size, \
+            self.params['ep_len'], render=self.params['render'], expert_policy=expert_policy, collect_expert_data=collect_expert_data)
         train_video_paths = None
         return paths, envsteps_this_batch, train_video_paths
 
