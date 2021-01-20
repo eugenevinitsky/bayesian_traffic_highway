@@ -22,8 +22,8 @@ PED_FEATURE_NAMES = ["ped_0", "ped_1", "ped_2", "ped_3"]
 NON_EGO_FEATURE_NAMES = [f"non_ego_{i}_{feature}" for feature in CAR_FEATURE_NAMES for i in range(NUM_NON_EGO_VEHICLES)]
 
 # minimal and maximal acceleration for all vehicles
-ACC_MIN = -4
-ACC_MAX = 3
+ACC_MIN = -7
+ACC_MAX = 4
 
 class FullStop(IDMVehicle):
     """Vehicle that shouldn't move (eg obstacle)"""
@@ -68,16 +68,14 @@ class L0Vehicle(IDMVehicle):
         self.non_ego_feature_names = NON_EGO_FEATURE_NAMES
         self.feature_names = EGO_FEATURE_NAMES + PED_FEATURE_NAMES + NON_EGO_FEATURE_NAMES
         # features range
-        self.features_range = self.env.observation_type.features_range
-        print(f'initilaize featrues _range, {self.env.observation_type.features_range}')
         self.normalize = self.env.observation_type.normalize
         # state dict
         self.state_dct = dict()
         # L0 trained policy - neural network representing trained l0 controller
         self.trained_policy = None
     
-    def to_dict(self, origin_vehicle: "Vehicle" = None, observe_intentions: bool = True) -> dict:
-        return self.get_state_dct()
+    def to_dict(self, peds=None, origin_vehicle=None, observe_intentions=True):
+        return self.get_state_dct(peds)
 
     def arrived_at_intersection(self, v):
         """Arrived at intersection means vehicle v is 2m or less away from intersection"""
@@ -154,20 +152,24 @@ class L0Vehicle(IDMVehicle):
             self.accel = accel
         if self in self.env.controlled_vehicles:
             if self.trained_policy:
-                return self.trained_policy.get_action(self.get_normalized_state())[0][0]
+                return self.trained_policy.get_action(self.get_normalized_state(peds))[0][0]
             if action != None:
                 return action
 
 
         return accel
 
-    def get_normalized_state(self):
+    def get_normalized_state(self, peds=None):
+        """
+        @Params
+        peds: if value provided, use it
+        """
         if not self.road:
             return np.zeros(self.space().shape)
 
         # Add ego-vehicle
-        df = pd.DataFrame.from_records([self.to_dict()])[self.feature_names]
-       
+        df = pd.DataFrame.from_records([self.to_dict(peds)])[self.feature_names]
+
         # Normalize and clip
         if self.normalize:
             df = self.normalize_obs(df)
@@ -244,7 +246,7 @@ class L0Vehicle(IDMVehicle):
         # fill ego states
         ego_states = {'ego_x': self.position[0], 'ego_y': self.position[1], 'ego_heading': self.heading, 
                       'ego_vx': self.velocity[0], 'ego_vy': self.velocity[1], 'ego_arr_order': self.arrival_order.get(self, -1)}
-        
+
         # fill ped states
         ped_state_lst = self.get_ped_state(peds) 
         for i, ped_val in enumerate(ped_state_lst):
@@ -316,10 +318,7 @@ class L1Vehicle(L0Vehicle):
                 peds[idx] = True
 
         # compute default accel for L1
-        accel = super().acceleration(ego_vehicle, front_vehicle, None, peds=peds, infer=True)
-        
-        # print(f'L1 default acceleration is {accel}')
-        
+        accel = super().acceleration(ego_vehicle, front_vehicle, None, peds=peds, infer=True)        
         
         # inference loop
         if self.do_inference:
@@ -328,28 +327,23 @@ class L1Vehicle(L0Vehicle):
                 front_v, rear_v = veh.road.neighbour_vehicles(veh)
                 car_accel = veh.acceleration(veh, front_v, rear_v, infer=True, )
 
-                # import ipdb; ipdb.set_trace() # hm updated ped props starts at .5, .5, .5, .5, but inference isn't doing anything? why?
-
                 # get inferred peds probs and update priors
                 updated_ped_probs, self.priors[veh] = get_filtered_posteriors(
                     veh, car_accel, self.priors.get(veh, {}),
                     noise_std=self.params['inference_noise_std']
                 )   
-                print(f'{updated_ped_probs}')
 
                 # plot data
                 if isinstance(veh, L0Vehicle):
                     self.plot_data['ped_probs'].append(updated_ped_probs)
                     self.plot_data['time'].append(self.timer)
-
-                # print(f'updated_ped probs is {updated_ped_probs}')
                 
                 # if predicting peds, take action that L0 would take given its knowledge is the prediction
                 if np.any(np.array(updated_ped_probs) > 0.8):
                     peds = list(np.array(updated_ped_probs) > 0.8)
                     peds[3] = False
                     self_front_v, self_rear_v = self.road.neighbour_vehicles(self)
-                    new_accel = super().acceleration(self, self_front_v, self_rear_v, peds=peds, infer=True)
+                    new_accel = super().acceleration(self, self_front_v, self_rear_v, peds=peds, infer=True)  
                     accel = min(new_accel, accel)
 
         accel = np.clip(accel, ACC_MIN, ACC_MAX)

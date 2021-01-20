@@ -7,6 +7,9 @@ from highway_env.vehicle.l012vehicles import L0Vehicle, L1Vehicle, L2Vehicle, Pe
 from notebooks.notebook_utils.cli_parser import create_parser, get_cli_params
 from highway_env.vehicle.imitation_controller.policies.MLP_policy import MLPPolicySL
 
+import cProfile
+import pandas as pd
+
 def run(args, params):
 
     env_config = dict()
@@ -45,7 +48,6 @@ def run(args, params):
 
     obs = env.reset()
     env.vehicle.trained_policy = collect_policy
-    print(f'collect policy set')
     # let us do the state normaliziation in l0l1l2 by setting the attributes from self.env.observation_type.features_range
     while not done:
         action = collect_policy.get_action(obs)[0]
