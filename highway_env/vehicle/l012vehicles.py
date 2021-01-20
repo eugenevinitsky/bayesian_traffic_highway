@@ -50,6 +50,7 @@ class L0Vehicle(IDMVehicle):
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        print(f'L0 initialized')
         # L0 can see through obstacles
         self.is_obscured = False
         # position of center points of the 4 crossings
@@ -66,8 +67,14 @@ class L0Vehicle(IDMVehicle):
         self.ped_feature_names = PED_FEATURE_NAMES
         self.non_ego_feature_names = NON_EGO_FEATURE_NAMES
         self.feature_names = EGO_FEATURE_NAMES + PED_FEATURE_NAMES + NON_EGO_FEATURE_NAMES
+        # features range
+        self.features_range = self.env.observation_type.features_range
+        print(f'initilaize featrues _range, {self.env.observation_type.features_range}')
+        self.normalize = self.env.observation_type.normalize
         # state dict
         self.state_dct = dict()
+        # L0 trained policy - neural network representing trained l0 controller
+        self.trained_policy = None
     
     def to_dict(self, origin_vehicle: "Vehicle" = None, observe_intentions: bool = True) -> dict:
         return self.get_state_dct()
@@ -101,6 +108,12 @@ class L0Vehicle(IDMVehicle):
         self.ids_crossed = set(ids_crossed)
 
     def acceleration(self, ego_vehicle, front_vehicle=None, rear_vehicle=None, peds=None, noise=False, infer=False, action=None):
+        """
+        @Params
+        action: if we're supplied an action, take the supplied action
+        @Return
+        acceleration
+        """
         # compute default IDM acceleration (pedestrians are not accounted for as obstacles)
         if isinstance(front_vehicle, Pedestrian): front_vehicle = None
         if isinstance(rear_vehicle, Pedestrian): rear_vehicle = None
@@ -139,24 +152,13 @@ class L0Vehicle(IDMVehicle):
 
         if not infer:
             self.accel = accel
-
-        # peds = list(map(lambda x: int(x), peds))
-        # ego_states = [self.position[0], self.position[1], self.heading, self.speed, self.arrival_order.get(self, -1)]
-        
-        # non_ego_states = []
-        # # compute arrival orders
-        # for v in self.road.vehicles:
-        #     if not (v == self or (isinstance(v, Pedestrian) or isinstance(v, FullStop))):
-        #         v_state = [v.position[0], v.position[1], v.heading, v.speed, v.arrival_order.get(v, -1)]
-        #         non_ego_states += v_state
-
-        # self.state = ego_states + peds + non_ego_states
-        # extra_states = len(self.ego_states_names) + len(self.ped_states_names) + self.max_other_vehs * len(self.non_ego_states_names) - len(self.state)
-        # self.state += [0] * extra_states
-
         if self in self.env.controlled_vehicles:
+            if self.trained_policy:
+                return self.trained_policy.get_action(self.get_normalized_state())[0][0]
             if action != None:
                 return action
+
+
         return accel
 
     def get_normalized_state(self):
@@ -172,7 +174,7 @@ class L0Vehicle(IDMVehicle):
         # Reorder
         df = df[self.feature_names]
         obs = df.values.copy()
-        if self.order == "shuffled":
+        if self.env.observation_type.order == "shuffled":
             self.env.np_random.shuffle(obs[1:])
         # Flatten
         return obs
@@ -216,6 +218,7 @@ class L0Vehicle(IDMVehicle):
         For now, assume that the road is straight along the x axis.
         :param Dataframe df: observation data
         """
+        self.features_range = self.env.observation_type.features_range # better location for this line?
         if not self.features_range:
             side_lanes = self.env.road.network.all_side_lanes(self.observer_vehicle.lane_index)
             self.features_range = {
@@ -223,11 +226,11 @@ class L0Vehicle(IDMVehicle):
                 "y": [-AbstractLane.DEFAULT_WIDTH * len(side_lanes), AbstractLane.DEFAULT_WIDTH * len(side_lanes)],
                 "vx": [-2*MDPVehicle.SPEED_MAX, 2*MDPVehicle.SPEED_MAX],
                 "vy": [-2*MDPVehicle.SPEED_MAX, 2*MDPVehicle.SPEED_MAX]
-            }
+            } 
         for feature, f_range in self.features_range.items():
             if feature in df:
                 df[feature] = utils.lmap(df[feature], [f_range[0], f_range[1]], [-1, 1])
-                if self.clip:
+                if self.env.observation_type.clip:
                     df[feature] = np.clip(df[feature], -1, 1)
         return df
 
@@ -314,25 +317,33 @@ class L1Vehicle(L0Vehicle):
 
         # compute default accel for L1
         accel = super().acceleration(ego_vehicle, front_vehicle, None, peds=peds, infer=True)
-
+        
+        # print(f'L1 default acceleration is {accel}')
+        
+        
         # inference loop
         if self.do_inference:
             for veh in visible_cars:
                 # get action taken by car
                 front_v, rear_v = veh.road.neighbour_vehicles(veh)
-                car_accel = veh.acceleration(veh, front_v, rear_v, infer=True)
+                car_accel = veh.acceleration(veh, front_v, rear_v, infer=True, )
+
+                # import ipdb; ipdb.set_trace() # hm updated ped props starts at .5, .5, .5, .5, but inference isn't doing anything? why?
 
                 # get inferred peds probs and update priors
                 updated_ped_probs, self.priors[veh] = get_filtered_posteriors(
                     veh, car_accel, self.priors.get(veh, {}),
                     noise_std=self.params['inference_noise_std']
                 )   
+                print(f'{updated_ped_probs}')
 
                 # plot data
                 if isinstance(veh, L0Vehicle):
                     self.plot_data['ped_probs'].append(updated_ped_probs)
                     self.plot_data['time'].append(self.timer)
 
+                # print(f'updated_ped probs is {updated_ped_probs}')
+                
                 # if predicting peds, take action that L0 would take given its knowledge is the prediction
                 if np.any(np.array(updated_ped_probs) > 0.8):
                     peds = list(np.array(updated_ped_probs) > 0.8)

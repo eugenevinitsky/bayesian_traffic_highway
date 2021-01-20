@@ -7,7 +7,6 @@ from highway_env.vehicle.l012vehicles import L0Vehicle, L1Vehicle, L2Vehicle, Pe
 from notebooks.notebook_utils.cli_parser import create_parser, get_cli_params
 from highway_env.vehicle.imitation_controller.policies.MLP_policy import MLPPolicySL
 
-
 def run(args, params):
 
     env_config = dict()
@@ -26,7 +25,7 @@ def run(args, params):
         'max_replay_buffer_size': params['max_replay_buffer_size'],
         'discrete': False
         }  
-                # Observation and action sizes
+    # Observation and action sizes
     ob_dim = env.observation_space.shape[0]
     ac_dim = env.action_space.shape[0]
     agent_params['ac_dim'] = ac_dim
@@ -41,13 +40,15 @@ def run(args, params):
         discrete=agent_params['discrete'],
         learning_rate=agent_params['learning_rate'],
     )
-
+    
     collect_policy.load_state_dict(torch.load(params['collect_policy_path']))
 
     obs = env.reset()
+    env.vehicle.trained_policy = collect_policy
+    print(f'collect policy set')
+    # let us do the state normaliziation in l0l1l2 by setting the attributes from self.env.observation_type.features_range
     while not done:
         action = collect_policy.get_action(obs)[0]
-        # action = None # if action is None, do normal controls
         obs, reward, done, info = env.step(action)
         env.render()
 

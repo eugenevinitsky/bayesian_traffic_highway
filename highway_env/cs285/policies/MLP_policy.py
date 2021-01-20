@@ -80,7 +80,7 @@ class MLPPolicy(BasePolicy, nn.Module, metaclass=abc.ABCMeta):
             observation = obs
         else:
             observation = obs[None]
-        # # TODO return the action that the policy prescribes
+
         observation = ptu.from_numpy(observation.astype(np.float32))
         action = self.mean_net(observation)
         return ptu.to_numpy(action)
@@ -118,10 +118,7 @@ class MLPPolicySL(MLPPolicy):
             self, observations, actions,
             adv_n=None, acs_labels_na=None, qvals=None
     ):
-        # import ipdb;ipdb.set_trace()
-        # TODO: update the policy and return the loss TODO(KL) add in a param for specifying MLELOSS?        
         loss = super().update(ptu.from_numpy(observations), ptu.from_numpy(actions))    
-        # import ipdb; ipdb.set_trace()    
         return {
             # You can add extra logging information here, but keep this line
             'Training Loss': ptu.to_numpy(loss),
