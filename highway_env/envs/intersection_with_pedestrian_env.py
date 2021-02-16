@@ -101,7 +101,14 @@ class PedestrianIntersectionEnv(IntersectionEnv):
         net = RoadNetwork()
         n, c, s = LineType.NONE, LineType.CONTINUOUS, LineType.STRIPED
 
-        if self.config["scenario"] in [9, 10]:
+        self.config["true_scenario"] = self.config["scenario"]
+        if self.config["scenario"] == 11:
+            self.config["true_scenario"] = np.random.choice([1, 2, 9, 10])
+            self.config["train"] = True
+            self.config["train_noise"] = np.random.uniform()
+            print(f'scenario: {self.config["scenario"]}')
+
+        if self.config["true_scenario"] in [9, 10]:
             # 2nd lane for this scenario (and 3rd invisible lane)
             # incoming from south
             rotation = np.array([[1, 0], [0, 1]])
@@ -109,7 +116,7 @@ class PedestrianIntersectionEnv(IntersectionEnv):
             end = rotation @ np.array([3 * lane_width / 2, outer_distance + lane_width])
             net.add_lane("o0", "ir0",
                          StraightLane(start, end, line_types=[s, c], priority=0, speed_limit=10, forbidden=True))
-            if self.config["scenario"] == 10:
+            if self.config["true_scenario"] == 10:
                 start = rotation @ np.array([5 * lane_width / 2, access_length + outer_distance])
                 end = rotation @ np.array([5 * lane_width / 2, outer_distance + lane_width])
                 net.add_lane("o0", "ir0",
@@ -131,7 +138,7 @@ class PedestrianIntersectionEnv(IntersectionEnv):
             priority = 3 if is_horizontal else 1
             rotation = np.array([[np.cos(angle), -np.sin(angle)], [np.sin(angle), np.cos(angle)]])
             # Incoming
-            lt = [c, s] if self.config["scenario"] in [9, 10] and corner == 0 else [s, c]
+            lt = [c, s] if self.config["true_scenario"] in [9, 10] and corner == 0 else [s, c]
             start = rotation @ np.array([lane_width / 2, access_length + outer_distance])
             end = rotation @ np.array([lane_width / 2, outer_distance])
             net.add_lane("o" + str(corner), "ir" + str(corner),
@@ -139,14 +146,14 @@ class PedestrianIntersectionEnv(IntersectionEnv):
 
             # replace s by n to hide ped lanes
             ped_display = s
-            if self.config["scenario"] in [9]:
+            if self.config["true_scenario"] in [9]:
                 # Pedestrian lanes (other direction and further from intersection)
                 start = rotation @ np.array([lane_width * 2.5, outer_distance * 2])
                 end = rotation @ np.array([lane_width * 2.5, -outer_distance * 2])
                 net.add_lane("p" + str(corner), "p" + str(corner) + "_end",
                             StraightLane(end, start, line_types=[ped_display, ped_display], priority=1234,
                                         width=AbstractLane.DEFAULT_WIDTH / 2, speed_limit=2))
-            elif self.config["scenario"] in [10]:
+            elif self.config["true_scenario"] in [10]:
                 # Pedestrian lanes (other direction and further from intersection)
                 start = rotation @ np.array([lane_width * 8, outer_distance * 2.5])
                 end = rotation @ np.array([lane_width * 8, -outer_distance * 2.5])
@@ -162,7 +169,7 @@ class PedestrianIntersectionEnv(IntersectionEnv):
                                         width=AbstractLane.DEFAULT_WIDTH / 2, speed_limit=2))
                 
             # Right turn
-            lt = [c, s] if self.config["scenario"] in [9, 10] and corner == 0 else [n, c]
+            lt = [c, s] if self.config["true_scenario"] in [9, 10] and corner == 0 else [n, c]
             r_center = rotation @ (np.array([outer_distance, outer_distance]))
             net.add_lane("ir" + str(corner), "il" + str((corner - 1) % 4),
                          CircularLane(r_center, right_turn_radius, angle + np.radians(180), angle + np.radians(270),
@@ -178,7 +185,7 @@ class PedestrianIntersectionEnv(IntersectionEnv):
             net.add_lane("ir" + str(corner), "il" + str((corner + 2) % 4),
                          StraightLane(start, end, line_types=[s, n], priority=priority, speed_limit=10))
             # Exit
-            lt = [c, s] if self.config["scenario"] in [9, 10] and corner == 0 else [s, c]
+            lt = [c, s] if self.config["true_scenario"] in [9, 10] and corner == 0 else [s, c]
             start = rotation @ np.flip([lane_width / 2, access_length + outer_distance], axis=0)
             end = rotation @ np.flip([lane_width / 2, outer_distance], axis=0)
             net.add_lane("il" + str((corner - 1) % 4), "o" + str((corner - 1) % 4),
@@ -219,29 +226,29 @@ class PedestrianIntersectionEnv(IntersectionEnv):
         vehicle_type.COMFORT_ACC_MIN = -4.5
 
         self.controlled_vehicles = []
-
-        def spawn_vehicle(lane, dest, pos, speed, heading=None, type="car", vclass=L0Vehicle, controlled=False):
+        
+        def spawn_vehicle(lane, dest, pos, speed, scenario, heading=None, type="car", vclass=L0Vehicle, controlled=False):
             params = {
                 ## we adapt the dynamics depending on what scenario is used
-                'scenario': self.config["scenario"],
+                'scenario': scenario,
                 'inference_noise_std': self.config['inference_noise_std'],
                 # distance of the pedestrian crossing from the origin
-                'crossing_positions': [(4, 10), (-10, 0), (0, -10), (10, 0)] if self.config["scenario"] == 9 \
-                    else [(4, 32), (-32, 0), (0, -32), (32, 0)] if self.config["scenario"] == 10 \
+                'crossing_positions': [(4, 10), (-10, 0), (0, -10), (10, 0)] if scenario == 9 \
+                    else [(4, 32), (-32, 0), (0, -32), (32, 0)] if scenario == 10 \
                     else [(0, 6), (-6, 0), (0, -6), (6, 0)],
                 # distance to detect crossings
-                'crossing_distance_detection': 7 if self.config["scenario"] == 9 else 4,
+                'crossing_distance_detection': 7 if scenario == 9 else 4,
                 # safe margin for vehicles to stop before crossings
-                'safe_margin': 8 if self.config["scenario"] in [9, 10] \
-                    else 10 if self.config["scenario"] in [2] \
+                'safe_margin': 8 if scenario in [9, 10] \
+                    else 10 if scenario in [2] \
                     else 10,
                 # max x distance pedestrians can be detected at (useful for vehicles traveling vertically)
                 # for scenario 10 we don't want L0 on left lane to stop if the pedestrian is on the right side of the road
-                'max_ped_detection_x': 2 if self.config["scenario"] in [10] else 9999,
+                'max_ped_detection_x': 2 if scenario in [10] else 9999,
                 # pedestrian is deleted once this condition is true
-                'ped_delete_condition': (lambda ped: ped.position[1] > 7) if self.config["scenario"] in [1] \
-                    else (lambda ped: ped.position[0] < -3) if self.config["scenario"] in [9] \
-                    else (lambda ped: ped.position[0] < 0) if self.config["scenario"] in [10] \
+                'ped_delete_condition': (lambda ped: ped.position[1] > 7) if scenario in [1] \
+                    else (lambda ped: ped.position[0] < -3) if scenario in [9] \
+                    else (lambda ped: ped.position[0] < 0) if scenario in [10] \
                     else lambda ped: False,
                 'env': self
             }
@@ -282,37 +289,61 @@ class PedestrianIntersectionEnv(IntersectionEnv):
                 self.controlled_vehicles.append(vehicle)
             self.road.vehicles.append(vehicle)
 
+
+        def scenario_1(train=False, noise=0):
+            spawn_vehicle(scenario=1, vclass=L0Vehicle, lane=("o1", "ir1", 0), dest="o3", pos=70 + noise * 5, speed=8.0 + noise * 2, type="car", controlled=True)
+            spawn_vehicle(scenario=1, vclass=L1Vehicle if not train else L0Vehicle, lane=("o3", "ir3", 0), dest="o1", pos=75 + noise * 5, speed=14 + noise * 2, type="car")
+            spawn_vehicle(scenario=1, vclass=Pedestrian, lane=("p2", "p2_end", 0), dest="p2_end", pos=2, speed=2.0, type="ped")
+            spawn_vehicle(scenario=1, vclass=FullStop, lane=("o2", "ir2", 0), dest="o1", pos=97, speed=0.0, type="bus")
+            # spawn_vehicle(vclass=FullStop, lane=("ir2", "il1", 0), dest="o1", pos=2, speed=2.0, heading=3.1415/16*12, type="bus")
+        def scenario_2(train=False, noise=0):
+            spawn_vehicle(scenario=2, vclass=L1Vehicle if not train else L0Vehicle, lane=("o3", "ir3", 0), dest="o1", pos=60 + noise * 5, speed=9.0 + noise * 2, type="car")
+            spawn_vehicle(scenario=2, vclass=L2Vehicle if not train else L0Vehicle, lane=("o1", "ir1", 0), dest="o0", pos=80 + noise * 5, speed=9.0 + noise * 2, type="car", controlled=True)
+            spawn_vehicle(scenario=2, vclass=FullStop, lane=("o2", "ir2", 0), dest="o0", pos=95 + noise * 5, speed=0.0, type="bus")
+            spawn_vehicle(scenario=2, vclass=FullStop, lane=("il3", "o3", 0), dest="o3", pos=8 + noise * 5, speed=0.0, type="bus")
+            spawn_vehicle(scenario=2, vclass=Pedestrian, lane=("p0", "p0_end", 0), dest="p0_end", pos=2, speed=2.0, type="ped")
+            # spawn_vehicle(vclass=Pedestrian, lane=("p2", "p2_end", 0), dest="p2_end", pos=0, speed=0.0, type="ped")
+        def scenario_9(train=False, noise=0):
+            spawn_vehicle(scenario=9, vclass=L1Vehicle if not train else L0Vehicle, lane=("o0", "ir0", 1), dest="o2", pos=40, speed=9.0 + noise * 2, type="car", controlled=True)
+            spawn_vehicle(scenario=9, vclass=L0Vehicle, lane=("o0", "ir0", 0), dest="o3", pos=60 + noise * 1, speed=8.0 + noise * 1, type="car")
+            spawn_vehicle(scenario=9, vclass=L0Vehicle, lane=("o0", "ir0", 0), dest="o3", pos=50 + noise * 1, speed=8.0 + noise * 1, type="car")
+            spawn_vehicle(scenario=9, vclass=L0Vehicle, lane=("o0", "ir0", 0), dest="o3", pos=40 + noise * 1, speed=8.0 + noise * 1, type="car")
+            spawn_vehicle(scenario=9, vclass=Pedestrian, lane=("p1", "p1_end", 0), dest="p1_end", pos=-3, speed=2.0, type="ped")        
+        def scenario_10(train=False, noise=0):
+            spawn_vehicle(scenario=10, vclass=L1Vehicle if not train else L0Vehicle, lane=("o0", "ir0", 0), dest="o3", pos=30 + noise * 2, speed=9.0 + noise * 1, type="car")
+            spawn_vehicle(scenario=10, vclass=L2Vehicle if not train else L0Vehicle, lane=("o0", "ir0", 2), dest="o2", pos=40, speed=9.0 + noise * 1, type="car", controlled=True)
+            spawn_vehicle(scenario=10, vclass=FullStop, lane=("o0", "ir0", 1), dest="o3", pos=70, speed=0.0, type="tree")
+            spawn_vehicle(scenario=10, vclass=Pedestrian, lane=("p1", "p1_end", 0), dest="p1_end", pos=-1, speed=2.0, type="ped")
+        def scenario_11():
+            print(f'scenario 11 called\nnn\n\n')
+            n1 = np.random.uniform()
+            n2 = np.random.uniform()
+            scenario_10(train=True, noise=n2)
+        # TODO KL get the scenario things correct
+            # if 0 <= n1 < 0.25:
+            #     scenario_1(l0=True, noise=n2)
+            # elif 0.25 <= n1 < 0.5:
+            #     scenario_2(l0=True, noise=n2)
+            # elif 0.5 <= n1 < 0.75:
+            #     scenario_9(l0=True, noise=n2)
+            # elif 0.75 <= n1 <= 1:
+            #     scenario_10(l0=True, noise=n2)
+        train = self.config.get("train", False) 
+        train_noise = self.config.get("train_noise", 0)
         if self.config["scenario"] is not None:
             print(f"Using custom scenario: {self.config['scenario']}")
-
-            if self.config["scenario"] == 0: # debug
+            if self.config["true_scenario"] == 0: # debug
                 raise ValueError
-            elif self.config["scenario"] == 1:
-                spawn_vehicle(vclass=L0Vehicle, lane=("o1", "ir1", 0), dest="o3", pos=70, speed=8.0, type="car", controlled=True)
-                spawn_vehicle(vclass=L1Vehicle, lane=("o3", "ir3", 0), dest="o1", pos=75, speed=14, type="car")
-                spawn_vehicle(vclass=Pedestrian, lane=("p2", "p2_end", 0), dest="p2_end", pos=2, speed=2.0, type="ped")
-                spawn_vehicle(vclass=FullStop, lane=("o2", "ir2", 0), dest="o1", pos=97, speed=0.0, type="bus")
-                # spawn_vehicle(vclass=FullStop, lane=("ir2", "il1", 0), dest="o1", pos=2, speed=2.0, heading=3.1415/16*12, type="bus")
-            elif self.config["scenario"] == 2:
-                spawn_vehicle(vclass=L1Vehicle, lane=("o3", "ir3", 0), dest="o1", pos=60, speed=9.0, type="car")
-                spawn_vehicle(vclass=L2Vehicle, lane=("o1", "ir1", 0), dest="o0", pos=80, speed=9.0, type="car", controlled=True)
-                spawn_vehicle(vclass=FullStop, lane=("o2", "ir2", 0), dest="o0", pos=95, speed=0.0, type="bus")
-                spawn_vehicle(vclass=FullStop, lane=("il3", "o3", 0), dest="o3", pos=8, speed=0.0, type="bus")
-                spawn_vehicle(vclass=Pedestrian, lane=("p0", "p0_end", 0), dest="p0_end", pos=2, speed=2.0, type="ped")
-                # spawn_vehicle(vclass=Pedestrian, lane=("p2", "p2_end", 0), dest="p2_end", pos=0, speed=0.0, type="ped")
-            elif self.config["scenario"] == 9:
-                spawn_vehicle(vclass=L1Vehicle, lane=("o0", "ir0", 1), dest="o2", pos=40, speed=9.0, type="car", controlled=True)
-                spawn_vehicle(vclass=L0Vehicle, lane=("o0", "ir0", 0), dest="o3", pos=60, speed=8.0, type="car")
-                spawn_vehicle(vclass=L0Vehicle, lane=("o0", "ir0", 0), dest="o3", pos=50, speed=8.0, type="car")
-                spawn_vehicle(vclass=L0Vehicle, lane=("o0", "ir0", 0), dest="o3", pos=40, speed=8.0, type="car")
-                spawn_vehicle(vclass=Pedestrian, lane=("p1", "p1_end", 0), dest="p1_end", pos=-3, speed=2.0, type="ped")
-            elif self.config["scenario"] == 10:
-                spawn_vehicle(vclass=L1Vehicle, lane=("o0", "ir0", 0), dest="o3", pos=30, speed=9.0, type="car")
-                spawn_vehicle(vclass=L2Vehicle, lane=("o0", "ir0", 2), dest="o2", pos=40, speed=9.0, type="car", controlled=True)
-                spawn_vehicle(vclass=FullStop, lane=("o0", "ir0", 1), dest="o3", pos=70, speed=0.0, type="tree")
-                spawn_vehicle(vclass=Pedestrian, lane=("p1", "p1_end", 0), dest="p1_end", pos=-1, speed=2.0, type="ped")
+            elif self.config["true_scenario"] == 1:
+                scenario_1(train=train, noise=train_noise)
+            elif self.config["true_scenario"] == 2:
+                scenario_2(train=train, noise=train_noise)
+            elif self.config["true_scenario"] == 9:
+                scenario_9(train=train, noise=train_noise)
+            elif self.config["true_scenario"] == 10:
+                scenario_10(train=train, noise=train_noise)
             else:
-                raise ValueError(f"Scenario '{self.config['scenario']}' unknown.")
+                raise ValueError(f"Scenario '{self.config['true_scenario']}' unknown.")
 
             for v in self.road.vehicles:
                 if not isinstance(v, Pedestrian) and not isinstance(v, FullStop):
