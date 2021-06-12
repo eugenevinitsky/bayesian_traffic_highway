@@ -30,4 +30,16 @@ We randomize the env in `intersection_with_pedestrian_env.py` lines 104 - 109:
         print(f'scenario: {self.config["scenario"]}')
 ```
 
+and lines 292 - 340, with first few lines:
+
+```
+    def scenario_1(train=False, noise=0):
+        prob_collect_non_ego_data = np.random.uniform(0, 1) if train else 0
+        spawn_vehicle(scenario=1, vclass=L0Vehicle, lane=("o1", "ir1", 0), dest="o3", pos=70 + noise * 5, speed=8.0 + noise * 2, type="car", controlled=prob_collect_non_ego_data < 0.5) # controlled car for the actual scenario
+        spawn_vehicle(scenario=1, vclass=L1Vehicle if not train else L0Vehicle, lane=("o3", "ir3", 0), dest="o1", pos=75 + noise * 5, speed=14 + noise * 2, type="car", controlled=prob_collect_non_ego_data >= 0.5)
+        if train and np.random.uniform(0, 1) > 0.5:
+            spawn_vehicle(scenario=1, vclass=Pedestrian, lane=("p2", "p2_end", 0), dest="p2_end", pos=2, speed=2.0, type="ped")
+        spawn_vehicle(scenario=1, vclass=FullStop, lane=("o2", "ir2", 0), dest="o1", pos=97, speed=0.0, type="bus")
+```
+
 The stepping of the env occurs in `highway_env/vehicle/imitation_controller/infrastructure/utils.py`
