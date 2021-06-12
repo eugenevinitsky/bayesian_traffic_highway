@@ -108,19 +108,15 @@ class RL_Trainer(object):
                 initial_expertdata,
                 collect_policy,
                 self.params['batch_size']
-            )  # HW1: implement this function below
+            ) 
             paths, envsteps_this_batch, train_video_paths = training_returns
             self.total_envsteps += envsteps_this_batch
-
-            # relabel the collected obs with actions from a provided expert policy
-            if relabel_with_expert and itr>=start_relabel_with_expert:
-                paths = self.do_relabel_with_expert(expert_policy, paths)  # HW1: implement this function below
 
             # add collected data to replay buffer
             self.agent.add_to_replay_buffer(paths)
 
             # train agent (using sampled data from replay buffer)
-            training_logs = self.train_agent()  # HW1: implement this function below
+            training_logs = self.train_agent() 
 
             # log/save
             if self.log_video or self.log_metrics:
