@@ -1,6 +1,7 @@
 from typing import Tuple, Union
 from collections import defaultdict
 
+import time
 import numpy as np
 import pandas as pd
 
@@ -53,6 +54,12 @@ class L0Vehicle(IDMVehicle):
         print(f'L0 initialized')
         # L0 can see through obstacles
         self.is_obscured = False
+        # this is somewhat unrealistic, but could be a vague approximation to assumption 2
+        # "policy that does not reason about others’ actions but acts
+        # conservatively in the face of partial observability. For example, if our blueprint policy sees a tree
+        # that a pedestrian could be hiding behind and assesses that the pedestrian could collide with it, it will
+        # drive slowly and cautiously to give it sufficient time to brake and avoid a collision."
+
         # position of center points of the 4 crossings
         self.crossings_positions = self.params['crossing_positions']
         self.accel = 0
@@ -152,10 +159,11 @@ class L0Vehicle(IDMVehicle):
             self.accel = accel
         if self in self.env.controlled_vehicles:
             if self.trained_policy:
-                return self.trained_policy.get_action(self.get_normalized_state(peds))[0][0]
+                state = self.get_normalized_state(peds)
+                action = self.trained_policy.get_action(state)[0][0]
+                return action
             if action != None:
                 return action
-
 
         return accel
 
@@ -319,7 +327,7 @@ class L1Vehicle(L0Vehicle):
 
         # compute default accel for L1
         accel = super().acceleration(ego_vehicle, front_vehicle, None, peds=peds, infer=True)        
-        
+        print(f'l1 accel is {accel}')
         # inference loop
         if self.do_inference:
             for veh in visible_cars:
