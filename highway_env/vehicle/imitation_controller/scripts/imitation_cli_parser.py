@@ -69,12 +69,12 @@ def get_cli_params():
 
 
     env_config = dict()
-    if params['scenario'] == 1:
-        env_config["scenario"] = args.scenario
-        env_config["spawn_probability"] = 0    # to avoid constant inflow
-        env_config["inference_noise_std"] = 0     # inference noise (std of normal noise added to inferred accelerations)
-        env_config["other_vehicles_type"] = 'highway_env.vehicle.behavior.IDMVehicle' # default behavior for cars is IDM
-        params['env_config'] = env_config
+    # if params['scenario'] == 1:
+    env_config["scenario"] = args.scenario
+    env_config["spawn_probability"] = 0    # to avoid constant inflow
+    env_config["inference_noise_std"] = 0     # inference noise (std of normal noise added to inferred accelerations)
+    env_config["other_vehicles_type"] = 'highway_env.vehicle.behavior.IDMVehicle' # default behavior for cars is IDM
+    params['env_config'] = env_config
     
 
     return params
