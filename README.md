@@ -43,3 +43,9 @@ and lines 292 - 340, with first few lines:
 ```
 
 The stepping of the env occurs in `highway_env/vehicle/imitation_controller/infrastructure/utils.py`
+
+To use a trained (DAgger) policy, add the flag
+
+`--collect_policy_path <path_to_trained_policy>` (excuse the poor naming) and specify the scenario to use (i.e something that's not scenario 11)
+
+@fixme Small bug with `get_ped_state` in `l012vehicles.py` 
