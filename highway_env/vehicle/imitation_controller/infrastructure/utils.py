@@ -23,7 +23,12 @@ def sample_trajectory(env, collect_policy, max_path_length, expert_policy, rende
     while True:
         if render:
             env.render()
-        
+
+        collision = any([veh.crashed for veh in env.road.vehicles])
+        if collision:
+            print(f'Collision! Stop collecting data')
+            break
+
         obs.append(ob)
         assert len(env.controlled_vehicles) == 1
         controlled_vehicle = env.controlled_vehicles[0]
@@ -40,7 +45,6 @@ def sample_trajectory(env, collect_policy, max_path_length, expert_policy, rende
         if expert_policy == 'rule_based':
             ac = controlled_vehicle.acceleration(controlled_vehicle)
             print('ac from expert_policy policy is', ac)
-
             ac = ac.reshape(1, 1)
             acs.append(ac)
         elif expert_policy == 'human_input':
