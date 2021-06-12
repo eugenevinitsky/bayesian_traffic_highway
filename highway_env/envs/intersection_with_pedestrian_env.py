@@ -29,7 +29,7 @@ class PedestrianIntersectionEnv(IntersectionEnv):
     def __init__(self, config):
         super().__init__(config)
         self.arrival_position = dict()
-        
+
     @classmethod
     def default_config(cls) -> dict:
         print('default config called')
@@ -291,43 +291,39 @@ class PedestrianIntersectionEnv(IntersectionEnv):
 
 
         def scenario_1(train=False, noise=0):
-            spawn_vehicle(scenario=1, vclass=L0Vehicle, lane=("o1", "ir1", 0), dest="o3", pos=70 + noise * 5, speed=8.0 + noise * 2, type="car", controlled=True)
-            spawn_vehicle(scenario=1, vclass=L1Vehicle if not train else L0Vehicle, lane=("o3", "ir3", 0), dest="o1", pos=75 + noise * 5, speed=14 + noise * 2, type="car")
-            spawn_vehicle(scenario=1, vclass=Pedestrian, lane=("p2", "p2_end", 0), dest="p2_end", pos=2, speed=2.0, type="ped")
+            import ipdb;ipdb.set_trace
+            prob_collect_non_ego_data = np.random.uniform(0, 1) if train else 0
+            spawn_vehicle(scenario=1, vclass=L0Vehicle, lane=("o1", "ir1", 0), dest="o3", pos=70 + noise * 5, speed=8.0 + noise * 2, type="car", controlled=prob_collect_non_ego_data < 0.5) # controlled car for the actual scenario
+            spawn_vehicle(scenario=1, vclass=L1Vehicle if not train else L0Vehicle, lane=("o3", "ir3", 0), dest="o1", pos=75 + noise * 5, speed=14 + noise * 2, type="car", controlled=prob_collect_non_ego_data >= 0.5)
+            if train and np.random.uniform(0, 1) > 0.5:
+                spawn_vehicle(scenario=1, vclass=Pedestrian, lane=("p2", "p2_end", 0), dest="p2_end", pos=2, speed=2.0, type="ped")
             spawn_vehicle(scenario=1, vclass=FullStop, lane=("o2", "ir2", 0), dest="o1", pos=97, speed=0.0, type="bus")
             # spawn_vehicle(vclass=FullStop, lane=("ir2", "il1", 0), dest="o1", pos=2, speed=2.0, heading=3.1415/16*12, type="bus")
         def scenario_2(train=False, noise=0):
-            spawn_vehicle(scenario=2, vclass=L1Vehicle if not train else L0Vehicle, lane=("o3", "ir3", 0), dest="o1", pos=60 + noise * 5, speed=9.0 + noise * 2, type="car")
-            spawn_vehicle(scenario=2, vclass=L2Vehicle if not train else L0Vehicle, lane=("o1", "ir1", 0), dest="o0", pos=80 + noise * 5, speed=9.0 + noise * 2, type="car", controlled=True)
+            prob_collect_non_ego_data = np.random.uniform(0, 1) if train else 0
+            spawn_vehicle(scenario=2, vclass=L1Vehicle if not train else L0Vehicle, lane=("o3", "ir3", 0), dest="o1", pos=60 + noise * 5, speed=9.0 + noise * 2, type="car", controlled=prob_collect_non_ego_data >= 0.5)
+            spawn_vehicle(scenario=2, vclass=L2Vehicle if not train else L0Vehicle, lane=("o1", "ir1", 0), dest="o0", pos=80 + noise * 5, speed=9.0 + noise * 2, type="car", controlled=prob_collect_non_ego_data < 0.5) # controlled car for the actual scenario
             spawn_vehicle(scenario=2, vclass=FullStop, lane=("o2", "ir2", 0), dest="o0", pos=95 + noise * 5, speed=0.0, type="bus")
             spawn_vehicle(scenario=2, vclass=FullStop, lane=("il3", "o3", 0), dest="o3", pos=8 + noise * 5, speed=0.0, type="bus")
-            spawn_vehicle(scenario=2, vclass=Pedestrian, lane=("p0", "p0_end", 0), dest="p0_end", pos=2, speed=2.0, type="ped")
+            if train and np.random.uniform(0, 1) > 0.5:
+                spawn_vehicle(scenario=2, vclass=Pedestrian, lane=("p0", "p0_end", 0), dest="p0_end", pos=2, speed=2.0, type="ped")
             # spawn_vehicle(vclass=Pedestrian, lane=("p2", "p2_end", 0), dest="p2_end", pos=0, speed=0.0, type="ped")
         def scenario_9(train=False, noise=0):
-            spawn_vehicle(scenario=9, vclass=L1Vehicle if not train else L0Vehicle, lane=("o0", "ir0", 1), dest="o2", pos=40, speed=9.0 + noise * 2, type="car", controlled=True)
-            spawn_vehicle(scenario=9, vclass=L0Vehicle, lane=("o0", "ir0", 0), dest="o3", pos=60 + noise * 1, speed=8.0 + noise * 1, type="car")
-            spawn_vehicle(scenario=9, vclass=L0Vehicle, lane=("o0", "ir0", 0), dest="o3", pos=50 + noise * 1, speed=8.0 + noise * 1, type="car")
+            prob_collect_non_ego_data = np.random.uniform(0, 1) if train else 0
+            spawn_vehicle(scenario=9, vclass=L1Vehicle if not train else L0Vehicle, lane=("o0", "ir0", 1), dest="o2", pos=40, speed=9.0 + noise * 2, type="car", controlled=prob_collect_non_ego_data < 0.333) # controlled car for the actual scenario
+            spawn_vehicle(scenario=9, vclass=L0Vehicle, lane=("o0", "ir0", 0), dest="o3", pos=60 + noise * 1, speed=8.0 + noise * 1, type="car", controlled=0.333 <= prob_collect_non_ego_data < 0.666)
+            spawn_vehicle(scenario=9, vclass=L0Vehicle, lane=("o0", "ir0", 0), dest="o3", pos=50 + noise * 1, speed=8.0 + noise * 1, type="car", controlled=0.666 <= prob_collect_non_ego_data)
             spawn_vehicle(scenario=9, vclass=L0Vehicle, lane=("o0", "ir0", 0), dest="o3", pos=40 + noise * 1, speed=8.0 + noise * 1, type="car")
-            spawn_vehicle(scenario=9, vclass=Pedestrian, lane=("p1", "p1_end", 0), dest="p1_end", pos=-3, speed=2.0, type="ped")        
+            if train and np.random.uniform(0, 1) > 0.5:
+                spawn_vehicle(scenario=9, vclass=Pedestrian, lane=("p1", "p1_end", 0), dest="p1_end", pos=-3, speed=2.0, type="ped")        
         def scenario_10(train=False, noise=0):
-            spawn_vehicle(scenario=10, vclass=L1Vehicle if not train else L0Vehicle, lane=("o0", "ir0", 0), dest="o3", pos=30 + noise * 2, speed=9.0 + noise * 1, type="car")
-            spawn_vehicle(scenario=10, vclass=L2Vehicle if not train else L0Vehicle, lane=("o0", "ir0", 2), dest="o2", pos=40, speed=9.0 + noise * 1, type="car", controlled=True)
+            prob_collect_non_ego_data = np.random.uniform(0, 1) if train else 0
+            spawn_vehicle(scenario=10, vclass=L1Vehicle if not train else L0Vehicle, lane=("o0", "ir0", 0), dest="o3", pos=30 + noise * 2, speed=9.0 + noise * 1, type="car", controlled=prob_collect_non_ego > 0.5)
+            spawn_vehicle(scenario=10, vclass=L2Vehicle if not train else L0Vehicle, lane=("o0", "ir0", 2), dest="o2", pos=40, speed=9.0 + noise * 1, type="car", controlled=prob_collect_non_ego <= 0.5)
             spawn_vehicle(scenario=10, vclass=FullStop, lane=("o0", "ir0", 1), dest="o3", pos=70, speed=0.0, type="tree")
-            spawn_vehicle(scenario=10, vclass=Pedestrian, lane=("p1", "p1_end", 0), dest="p1_end", pos=-1, speed=2.0, type="ped")
-        def scenario_11():
-            print(f'scenario 11 called\nnn\n\n')
-            n1 = np.random.uniform()
-            n2 = np.random.uniform()
-            scenario_10(train=True, noise=n2)
-        # TODO KL get the scenario things correct
-            # if 0 <= n1 < 0.25:
-            #     scenario_1(l0=True, noise=n2)
-            # elif 0.25 <= n1 < 0.5:
-            #     scenario_2(l0=True, noise=n2)
-            # elif 0.5 <= n1 < 0.75:
-            #     scenario_9(l0=True, noise=n2)
-            # elif 0.75 <= n1 <= 1:
-            #     scenario_10(l0=True, noise=n2)
+            if train and np.random.uniform(0, 1) > 0.5:
+                spawn_vehicle(scenario=10, vclass=Pedestrian, lane=("p1", "p1_end", 0), dest="p1_end", pos=-1, speed=2.0, type="ped")
+
         train = self.config.get("train", False) 
         train_noise = self.config.get("train_noise", 0)
         if self.config["scenario"] is not None:
