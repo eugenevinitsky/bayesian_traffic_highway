@@ -78,7 +78,9 @@ class RL_Trainer:
 
         for itr in range(n_iter):
             print("\n\n********** Iteration %i ************"%itr)
-
+            if self.params['save_params']:
+                print('\nSaving agent params')
+                self.agent.save('{}.pt'.format(self.params['logdir']))
             training_returns = self.collect_training_trajectories(itr, collect_policy, self.params['batch_size'], expert_policy)
             paths, envsteps_this_batch, train_video_paths = training_returns
             self.total_envsteps += envsteps_this_batch
@@ -86,9 +88,9 @@ class RL_Trainer:
             self.agent.add_to_replay_buffer(paths)
             training_logs = self.train_agent()
 
-        if self.params['save_params']:
-            print('\nSaving agent params')
-            self.agent.save('{}.pt'.format(self.params['logdir']))
+            if self.params['save_params']:
+                print('\nSaving agent params')
+                self.agent.save('{}.pt'.format(self.params['logdir']))
 
     def collect_training_trajectories(self, itr, collect_policy, batch_size, expert_policy=None):
         """
