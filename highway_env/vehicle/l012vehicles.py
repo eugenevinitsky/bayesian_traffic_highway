@@ -1,7 +1,6 @@
 from typing import Tuple, Union
 from collections import defaultdict
 
-import time
 import numpy as np
 import pandas as pd
 
@@ -54,7 +53,8 @@ class L0Vehicle(IDMVehicle):
         print(f'L0 initialized')
         # L0 can see through obstacles
         self.is_obscured = False
-        # this is somewhat unrealistic, but could be a vague approximation to assumption 2
+        # somewhat unrealistic and would cause L0 to behave with privileged info, however, 
+        # could be a vague approximation to assumption 2:
         # "policy that does not reason about others’ actions but acts
         # conservatively in the face of partial observability. For example, if our blueprint policy sees a tree
         # that a pedestrian could be hiding behind and assesses that the pedestrian could collide with it, it will
@@ -130,7 +130,6 @@ class L0Vehicle(IDMVehicle):
                 if self.arrived_at_intersection(v) and not self.arrival_order.get(v, False):
                     self.arrival_order[v] = len(self.arrival_order) + 1
 
-        # get crossings where there are pedestrians (without obstruction) unless provided
         peds = self.get_ped_state(peds)
 
         # if a crossing with a ped is on the path, start breaking when we need to
@@ -205,6 +204,7 @@ class L0Vehicle(IDMVehicle):
                             peds[idx] = True
         return peds
 
+    # not used
     def get_state(self, peds=None):
         """Return state vector for current vehicle"""
         peds = list(map(lambda x: int(x), peds))
@@ -300,6 +300,22 @@ class L1Vehicle(L0Vehicle):
         # L1 priors
         self.priors = dict()
 
+    def get_ped_state(self, peds):
+        # compute visible vehicles
+        visible_vehs = self.road.close_vehicles_to(self, obscuration=True)
+
+        # get peds visible by L1
+        peds_visible = [v for v in visible_vehs if isinstance(v, Pedestrian)] if self.see_peds else []
+
+        # compute peds vector from visible peds
+        peds = [0] * 4
+        for ped in peds_visible:
+            if ped.lane_index[0].startswith("p"):
+                idx = (int(ped.lane_index[0][1]) - 1) % 4  # cf parent method
+                peds[idx] = 1
+        
+        return peds
+
     def acceleration(self, ego_vehicle, front_vehicle=None, rear_vehicle=None, peds=None, action=None):
         # plot data
         for v in self.road.vehicles:
@@ -371,10 +387,30 @@ class L2Vehicle(L0Vehicle):
             self.last_action = action['acceleration']
         super().act(action)
 
+    def get_ped_state(self, peds):
+        # compute visible vehicles
+        visible_vehs = self.road.close_vehicles_to(self, obscuration=True)
+
+        # get peds visible by L1
+        peds_visible = [v for v in visible_vehs if isinstance(v, Pedestrian)] if self.see_peds else []
+
+        # compute peds vector from visible peds
+        peds = [0] * 4
+        for ped in peds_visible:
+            if ped.lane_index[0].startswith("p"):
+                idx = (int(ped.lane_index[0][1]) - 1) % 4  # cf parent method
+                peds[idx] = 1
+        
+        return peds
+
     def acceleration(self, ego_vehicle, front_vehicle=None, rear_vehicle=None, peds=None, noise=False, infer=False, action=None):
         # if L1 asks for inference, return what L0 would do
         if peds is not None:
             return super().acceleration(ego_vehicle, front_vehicle, rear_vehicle, peds=peds, infer=True)
+
+        # function relies on self.last_action existing, so adding a hack (?) here
+        if 'last_action' not in self.__dict__.keys():
+            self.last_action = self.action['acceleration']
 
         if self.last_action < 0:
             # brake
