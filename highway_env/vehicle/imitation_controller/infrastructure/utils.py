@@ -50,6 +50,8 @@ def sample_trajectory(env, collect_policy, max_path_length, expert_policy, rende
         elif expert_policy == 'human_input':
             print(f'expert policy is {expert_policy}; not implemented yet')
             assert False
+        elif expert_policy == 'no_expert_eval_scenario':
+            print(f'Evaluating scenario: no expert policy')
         else:
             print(f'expert policy is {expert_policy}; not implemented yet')
             assert False

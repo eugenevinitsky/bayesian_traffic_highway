@@ -48,4 +48,13 @@ To use a trained (DAgger) policy, add the flag
 
 `--collect_policy_path <path_to_trained_policy>` (excuse the poor naming) and specify the scenario to use (i.e something that's not scenario 11)
 
-@fixme Small bug with `get_ped_state` in `l012vehicles.py` 
+
+N.B. current training randomization may not be enough
+
+### Evaluation
+
+To run the 4 original case study scenarios:
+
+`python vehicle/imitation_controller/scripts/train_imitation_agent.py --env_name intersection-pedestrian-v0 --exp_name eval_scenario --save_params False --scenario <1/2/9/10> --expert_policy no_expert_eval_scenario`
+
+@todo collect data on success rate; NB it's quite tricky to come up with configurations that cause the L0 vehicles to crash

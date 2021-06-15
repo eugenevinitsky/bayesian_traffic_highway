@@ -14,7 +14,7 @@ def create_parser():
     parser.add_argument('--scenario', type=int, default=1, required=True, help='Specific the scenario to run. Options: 1 (4 way intersection)')
 
     # optional input parameters
-    parser.add_argument('--expert_policy_path', type=str, default='', help='Specify the expert policy path. Options: "rule_based", "human_input" #TODO (not supported yet), an actual neural net policy path')
+    parser.add_argument('--expert_policy_path', type=str, default='', choices=['rule_based', 'human_input', 'no_expert_eval_scenario'], help='Specify the expert policy path. Options: "rule_based", "human_input, no_expert_eval_scenario" #TODO (not supported yet), an actual neural net policy path')
     parser.add_argument('--collect_policy_path', type=str, default='', help="Collect policy is the 'beginner' neural net policy that gets trained and steps the environment. If empty string, create a new neural net policy")
     parser.add_argument('--max_replay_buffer_size', type=int, default=1000000)
     parser.add_argument('--no_gpu', '-ngpu', action='store_true')
