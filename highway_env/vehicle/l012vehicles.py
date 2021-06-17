@@ -101,7 +101,40 @@ class L0Vehicle(IDMVehicle):
 
             return v_dist < threshold_arrival
         
-        return False 
+        return False
+
+    def exited_intersection(self, v):
+        """Exited intersection means vehicle v is 4m or less away from intersection"""
+        threshold_arrival = 2  # threshold to be detected as exiting the intersection
+
+        origin, dest, _ = lane = self.road.network.get_closest_lane_index(v.position)
+        lane_geometry = self.road.network.get_lane(lane)
+
+        if origin.startswith("il"):
+            # going towards intersection
+            assert isinstance(lane_geometry, StraightLane)
+            lane_start, _ = lane_geometry.start, lane_geometry.end
+            v_dist = np.linalg.norm(v.position - lane_start)  # distance from
+            return v_dist > threshold_arrival
+
+        return False
+
+    @staticmethod
+    def is_conflict_possible(v1: ControlledVehicle, v2: ControlledVehicle, horizon: int = 3,
+                             step: float = 0.25) -> bool:
+        times = np.arange(step, horizon, step)
+        positions_1, headings_1 = v1.predict_trajectory_constant_speed(times)
+        positions_2, headings_2 = v2.predict_trajectory_constant_speed(times)
+
+        for position_1, heading_1, position_2, heading_2 in zip(positions_1, headings_1, positions_2, headings_2):
+            # Fast spherical pre-check
+            if np.linalg.norm(position_2 - position_1) > v1.LENGTH:
+                continue
+
+            # Accurate rectangular check
+            if utils.rotated_rectangles_intersect((position_1, 1.5 * v1.LENGTH, 0.9 * v1.WIDTH, heading_1),
+                                                  (position_2, 1.5 * v2.LENGTH, 0.9 * v2.WIDTH, heading_2)):
+                return True
 
     def precompute(self):
         # get which crossings the car will cross along its route
