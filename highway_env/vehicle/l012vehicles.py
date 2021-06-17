@@ -53,6 +53,8 @@ class L0Vehicle(IDMVehicle):
         print(f'L0 initialized')
         # L0 can see through obstacles
         self.is_obscured = False
+        # whether L0 can see non-obscured peds (set to False if L1 should use inference only)
+        self.see_peds = True
         # somewhat unrealistic and would cause L0 to behave with privileged info, however, 
         # could be a vague approximation to assumption 2:
         # "policy that does not reason about others’ actions but acts
@@ -129,6 +131,44 @@ class L0Vehicle(IDMVehicle):
             if not (isinstance(v, Pedestrian) or isinstance(v, FullStop)):
                 if self.arrived_at_intersection(v) and not self.arrival_order.get(v, False):
                     self.arrival_order[v] = len(self.arrival_order) + 1
+                if self.exited_intersection(v):
+                    self.arrival_order[v] = -1
+
+        # earliest_vehicle = None
+        # last_arrival = 1e3
+        # for v in self.road.vehicles:
+        #     curr_order = self.arrival_order.get(v, False)
+        #     if curr_order and curr_order < last_arrival and curr_order != -1:
+        #         last_arrival = curr_order
+        #         earliest_vehicle = v
+        #
+        # if len(self.arrival_order) > 1:
+        #     print(earliest_vehicle)
+        #     print(self.arrival_order)
+        #     import ipdb; ipdb.set_trace
+        # # there is a vehicle that has arrived at the intersection before us and we have not
+        # # crossed through the intersection, so we should wait
+        # if earliest_vehicle != self and self.arrival_order.get(self, False) and self.arrival_order.get(self, False) != -1:
+        #     import ipdb; ipdb.set_trace()
+        #     accel = ACC_MIN
+        # Find new conflicts and resolve them
+        # for i in range(len(self.vehicles) - 1):
+        #     for j in range(i + 1, len(self.vehicles)):
+        #         # avoid crashes
+        #         # but not with pedestrians
+        #         if isinstance(self.vehicles[i], Pedestrian) or isinstance(self.vehicles[j], Pedestrian):
+        #             continue
+        #         if self.is_conflict_possible(self.vehicles[i], self.vehicles[j]):
+        #             yielding_vehicle = self.respect_priorities(self.vehicles[i], self.vehicles[j])
+        #             if yielding_vehicle is not None and \
+        #                     isinstance(yielding_vehicle, ControlledVehicle) and \
+        #                     not isinstance(yielding_vehicle, MDPVehicle):
+        #                 # yielding_vehicle.color = self.YIELDING_COLOR
+        #                 yielding_vehicle.target_speed = 0
+        #                 yielding_vehicle.is_yielding = True
+        #                 yielding_vehicle.yield_timer = 0
+        # TODO(@evinitsky) comment this out when not training
+        self.road.enforce_road_rules()
 
         peds = self.get_ped_state(peds)
 
@@ -188,20 +228,36 @@ class L0Vehicle(IDMVehicle):
         # Flatten
         return obs
 
-    def get_ped_state(self, peds=None):
-        # get crossings where there are pedestrians (without obstruction) unless provided
-        if not peds:
-            assert (not self.is_obscured)  # to make sure there's no bug since L1 and L2 use this method
-            peds = [False] * 4  # south, west, north, east
-            for v in self.road.vehicles:
-                if isinstance(v, Pedestrian):
-                    start_edge = v.lane_index[0]
-                    # start edge is p<idx> with idx = 0 south, 1 west, 2 north, 3 east
-                    if start_edge.startswith("p"):  # and not start_edge.endswith("inv"):
-                        if np.abs(v.position[0] - self.position[0]) < self.params['max_ped_detection_x']:
-                            # crossing ids = 0 east, 1 south, 2 west, 3 north; we want south to be 0, hence the -1 % 4
-                            idx = (int(start_edge[1]) - 1) % 4
-                            peds[idx] = True
+    # def get_ped_state(self, peds=None):
+    #     # get crossings where there are pedestrians (without obstruction) unless provided
+    #     if not peds:
+    #         assert (not self.is_obscured)  # to make sure there's no bug since L1 and L2 use this method
+    #         peds = [False] * 4  # south, west, north, east
+    #         for v in self.road.vehicles:
+    #             if isinstance(v, Pedestrian):
+    #                 start_edge = v.lane_index[0]
+    #                 # start edge is p<idx> with idx = 0 south, 1 west, 2 north, 3 east
+    #                 if start_edge.startswith("p"):  # and not start_edge.endswith("inv"):
+    #                     if np.abs(v.position[0] - self.position[0]) < self.params['max_ped_detection_x']:
+    #                         # crossing ids = 0 east, 1 south, 2 west, 3 north; we want south to be 0, hence the -1 % 4
+    #                         idx = (int(start_edge[1]) - 1) % 4
+    #                         peds[idx] = True
+    #     return peds
+
+    def get_ped_state(self, peds):
+        # compute visible vehicles
+        visible_vehs = self.road.close_vehicles_to(self, obscuration=True)
+
+        # get peds visible by L1
+        peds_visible = [v for v in visible_vehs if isinstance(v, Pedestrian)] if self.see_peds else []
+
+        # compute peds vector from visible peds
+        peds = [0] * 4
+        for ped in peds_visible:
+            if ped.lane_index[0].startswith("p"):
+                idx = (int(ped.lane_index[0][1]) - 1) % 4  # cf parent method
+                peds[idx] = 1
+
         return peds
 
     # not used

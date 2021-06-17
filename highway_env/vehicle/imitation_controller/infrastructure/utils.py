@@ -36,7 +36,7 @@ def sample_trajectory(env, collect_policy, max_path_length, expert_policy, rende
         # get collect policy to provide actions for stepping the env
         if isinstance(collect_policy, MLPPolicySL):
             ac = collect_policy.get_action(ob)[0]
-            print('ac from collect policy is', ac)
+            # print('ac from collect policy is', ac)
         else:
             print("collect_policy is always a MLPPolicySL for now; I’ll find another way to collect initial_expert_data")
             assert False
@@ -44,7 +44,7 @@ def sample_trajectory(env, collect_policy, max_path_length, expert_policy, rende
         # get expert policy to provide actions for training
         if expert_policy == 'rule_based':
             ac = controlled_vehicle.acceleration(controlled_vehicle)
-            print('ac from expert_policy policy is', ac)
+            # print('ac from expert_policy policy is', ac)
             ac = ac.reshape(1, 1)
             acs.append(ac)
         elif expert_policy == 'human_input':

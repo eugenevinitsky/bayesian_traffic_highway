@@ -321,6 +321,33 @@ class PedestrianIntersectionEnv(IntersectionEnv):
             if not train or np.random.uniform(0, 1) > 0.5:
                 spawn_vehicle(scenario=10, vclass=Pedestrian, lane=("p1", "p1_end", 0), dest="p1_end", pos=-1, speed=2.0, type="ped")
 
+        def scenario_12(train=True, noise=0):
+            noise = 1
+            # default scenario where the vehicles are just randomly spawned in four locations
+            controlled_vehicle = [0, 0, 0, 0]
+            controlled_num = np.random.randint(low=0, high=4)
+            controlled_vehicle[controlled_num] = 1
+            if noise > 0:
+                output_noise = np.random.uniform() - 0.5
+            i = 0
+            spawn_vehicle(scenario=12, vclass=L1Vehicle if not train else L0Vehicle, lane=("o3", "ir3", 0), dest="o1",
+                          pos=80 + noise * 5, speed=10.5 + output_noise * 2, type="car",
+                          controlled=controlled_vehicle[i])
+            i += 1
+            spawn_vehicle(scenario=12, vclass=L2Vehicle if not train else L0Vehicle, lane=("o1", "ir1", 0), dest="o3",
+                          pos=81 + noise * 5, speed=9.0 + output_noise * 2, type="car",
+                          controlled=controlled_vehicle[i])  # controlled car for the actual scenario
+            i += 1
+            spawn_vehicle(scenario=12, vclass=L2Vehicle if not train else L0Vehicle, lane=("o2", "ir2", 0), dest="o0",
+                          pos=82 + noise * 5, speed=9.0 + output_noise * 2, type="car",
+                          controlled=controlled_vehicle[i])  # controlled car for the actual scenario
+            i += 1
+            spawn_vehicle(scenario=12, vclass=L2Vehicle if not train else L0Vehicle, lane=("o0", "ir0", 0), dest="o2",
+                          pos=83 + noise * 5, speed=9.0 + output_noise * 2, type="car",
+                          controlled=controlled_vehicle[i])  # controlled car for the actual scenario
+            if np.random.uniform(0, 1) > 0.5:
+                spawn_vehicle(scenario=10, vclass=Pedestrian, lane=("p1", "p1_end", 0), dest="p1_end", pos=-1, speed=2.0, type="ped")
+
         train = self.config.get("train", False) 
         train_noise = self.config.get("train_noise", 0)
         if self.config["scenario"] is not None:
@@ -335,6 +362,8 @@ class PedestrianIntersectionEnv(IntersectionEnv):
                 scenario_9(train=train, noise=train_noise)
             elif self.config["true_scenario"] == 10:
                 scenario_10(train=train, noise=train_noise)
+            elif self.config["true_scenario"] == 12:
+                scenario_12(train=True, noise=train_noise)
             else:
                 raise ValueError(f"Scenario '{self.config['true_scenario']}' unknown.")
 

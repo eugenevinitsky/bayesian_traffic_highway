@@ -1,7 +1,12 @@
 from typing import Tuple
+import platform
 
 import numpy as np
+import matplotlib
+if platform.system() == 'Darwin':
+    matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
+
 
 from highway_env.road.road import Road
 from highway_env.types import Vector

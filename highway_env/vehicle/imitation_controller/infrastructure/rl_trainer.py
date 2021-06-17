@@ -87,6 +87,9 @@ class RL_Trainer:
             
             self.agent.add_to_replay_buffer(paths)
             training_logs = self.train_agent()
+            for log in training_logs:
+                for key, val in log.items():
+                    self.logger.log_scalar(val, key, itr)
 
             if self.params['save_params']:
                 print('\nSaving agent params')
